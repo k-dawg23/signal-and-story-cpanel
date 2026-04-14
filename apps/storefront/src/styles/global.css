@@ -59,3 +59,68 @@ a{color:inherit; text-decoration:none}
 
 .sr{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
 
+.productMedia{
+  border-radius:14px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(120px 120px at 30% 20%, rgba(168,85,247,.18), transparent 60%),
+    radial-gradient(140px 140px at 80% 70%, rgba(34,211,238,.12), transparent 55%),
+    rgba(0,0,0,.22);
+  position:relative;
+}
+
+.productThumb{
+  width:min(160px, 100%);
+  aspect-ratio: 1 / 1;
+}
+
+.productThumbImg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;
+  object-position: center;
+  display:block;
+  padding:10px;
+}
+
+.productHero{
+  width:min(360px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius:18px;
+}
+
+.productHeroImg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;
+  object-position: center;
+  display:block;
+  padding:14px;
+}
+
+.cartThumb{
+  width:54px;
+  height:54px;
+  border-radius:14px;
+  overflow:hidden;
+  background:rgba(255,255,255,.03);
+  border:1px solid var(--line);
+  position:relative;
+}
+
+.cartThumbImg{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;
+  object-position: center;
+  display:block;
+  padding:6px;
+}
+

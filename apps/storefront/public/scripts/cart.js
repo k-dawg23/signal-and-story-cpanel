@@ -74,10 +74,10 @@
             (it) => `
           <div class="card" style="padding:12px;display:grid;gap:10px">
             <div style="display:flex;gap:10px;align-items:center">
-              <div class="card" style="width:54px;height:54px;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.03);border:1px solid var(--line);position:relative">
+              <div class="cartThumb">
                 ${
                   it.image_url
-                    ? `<img src="${it.image_url}" alt="" onerror="this.remove()" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block" />`
+                    ? `<img src="${it.image_url}" alt="" onerror="this.remove()" class="cartThumbImg" />`
                     : ""
                 }
               </div>

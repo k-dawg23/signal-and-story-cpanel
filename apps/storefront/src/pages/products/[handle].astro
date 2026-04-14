@@ -18,7 +18,7 @@ const imageUrl = p?.image_url ? String(p.image_url) : "";
 <Base title={`${p?.name ?? "Product"} — Signal & Story`}>
   {p ? (
   <div class="grid cols2" style="align-items:start">
-    <div class="card" style="height:320px;border-radius:18px;overflow:hidden;background:linear-gradient(135deg, rgba(168,85,247,.18), rgba(34,211,238,.10));position:relative;border:1px solid rgba(255,255,255,.08)">
+    <div class="productMedia productHero">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -26,7 +26,7 @@ const imageUrl = p?.image_url ? String(p.image_url) : "";
           loading="eager"
           decoding="async"
           onerror="this.remove()"
-          style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block"
+          class="productHeroImg"
         />
       ) : null}
     </div>
