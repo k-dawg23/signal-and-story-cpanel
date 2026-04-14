@@ -47,7 +47,7 @@ delete_existing AS (
 )
 INSERT INTO product_collections (product_id, collection_id)
 SELECT p.id, c.id
-FROM products p
+FROM upsert_products p
 CROSS JOIN LATERAL (
   VALUES
     -- Cables
@@ -73,5 +73,6 @@ CROSS JOIN LATERAL (
     (CASE WHEN p.handle IN ('grimwood-tuner','phasegate-metronome','runegrid-practice-pad','neon-wyrm-patch-cable','voidglass-instrument-cable-3m','starlance-instrument-cable-6m') THEN 'general' END, 'instrument')
 ) AS tags(slug, type)
 JOIN collections c ON c.slug = tags.slug AND c.type::text = tags.type
-WHERE tags.slug IS NOT NULL;
+WHERE tags.slug IS NOT NULL
+ON CONFLICT DO NOTHING;
 

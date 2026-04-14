@@ -14,6 +14,26 @@ need_cmd docker
 need_cmd npm
 need_cmd curl
 
+find_go() {
+  if command -v go >/dev/null 2>&1; then
+    echo "go"
+    return 0
+  fi
+  if [[ -x "/usr/local/go/bin/go" ]]; then
+    echo "/usr/local/go/bin/go"
+    return 0
+  fi
+  if [[ -x "/usr/bin/go" ]]; then
+    echo "/usr/bin/go"
+    return 0
+  fi
+  if [[ -x "/snap/bin/go" ]]; then
+    echo "/snap/bin/go"
+    return 0
+  fi
+  return 1
+}
+
 if [[ ! -f "${ROOT_DIR}/.env" ]]; then
   echo "No .env found. Copying from .env.example"
   cp "${ROOT_DIR}/.env.example" "${ROOT_DIR}/.env"
@@ -67,11 +87,11 @@ echo "Starting auth service on http://localhost:${AUTH_PORT} ..."
 PIDS+=("$!")
 
 API_OK=0
-if command -v go >/dev/null 2>&1; then
+if GO_CMD="$(find_go)"; then
   echo "Starting API on http://localhost:8788 ..."
   API_LOG="${ROOT_DIR}/tmp/api.log"
   mkdir -p "${ROOT_DIR}/tmp"
-  (cd "${ROOT_DIR}/apps/api" && go run ./cmd/api) >"${API_LOG}" 2>&1 &
+  (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" run ./cmd/api) >"${API_LOG}" 2>&1 &
   API_PID="$!"
   PIDS+=("${API_PID}")
 
@@ -92,7 +112,7 @@ if command -v go >/dev/null 2>&1; then
     echo "--------------------------------" >&2
   fi
 else
-  echo "Go is not installed; skipping API start. The storefront will run in offline-catalog mode." >&2
+  echo "Go is not installed (or not on PATH); skipping API start. The storefront will run in offline-catalog mode." >&2
 fi
 
 echo "Starting storefront on http://localhost:4321 ..."
