@@ -15,6 +15,12 @@ Prereqs:
 docker compose -f infra/docker-compose.yml up -d
 ```
 
+Or run everything with the dev runner:
+
+```bash
+./scripts/dev.sh
+```
+
 Local services:
 - **Postgres**: `localhost:5433` (db: `signal_and_story`, user: `signal`, pass: `story`)
 - **Mailpit (SMTP)**: `localhost:1026`
