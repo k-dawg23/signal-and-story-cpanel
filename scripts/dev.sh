@@ -12,6 +12,7 @@ need_cmd() {
 
 need_cmd docker
 need_cmd npm
+need_cmd curl
 
 if [[ ! -f "${ROOT_DIR}/.env" ]]; then
   echo "No .env found. Copying from .env.example"
@@ -65,10 +66,31 @@ echo "Starting auth service on http://localhost:${AUTH_PORT} ..."
 (cd "${ROOT_DIR}/apps/auth" && npm run dev) &
 PIDS+=("$!")
 
+API_OK=0
 if command -v go >/dev/null 2>&1; then
   echo "Starting API on http://localhost:8788 ..."
-  (cd "${ROOT_DIR}/apps/api" && go run ./cmd/api) &
-  PIDS+=("$!")
+  API_LOG="${ROOT_DIR}/tmp/api.log"
+  mkdir -p "${ROOT_DIR}/tmp"
+  (cd "${ROOT_DIR}/apps/api" && go run ./cmd/api) >"${API_LOG}" 2>&1 &
+  API_PID="$!"
+  PIDS+=("${API_PID}")
+
+  echo "Waiting for API /healthz..."
+  for _ in {1..40}; do
+    if curl -fsS "http://127.0.0.1:8788/healthz" >/dev/null 2>&1; then
+      API_OK=1
+      break
+    fi
+    sleep 0.25
+  done
+
+  if [[ "${API_OK}" -ne 1 ]]; then
+    echo "API did not become healthy. Storefront will run in offline-catalog mode." >&2
+    echo "API log: ${API_LOG}" >&2
+    echo "---- api.log (last 80 lines) ----" >&2
+    tail -n 80 "${API_LOG}" >&2 || true
+    echo "--------------------------------" >&2
+  fi
 else
   echo "Go is not installed; skipping API start. The storefront will run in offline-catalog mode." >&2
 fi
