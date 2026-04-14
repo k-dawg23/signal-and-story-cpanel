@@ -9,11 +9,91 @@ Prereqs:
 - Go (for `apps/api`)
 - Node.js (for `apps/storefront` and `apps/auth`)
 
-Start infra:
+### 1) Infra (Postgres + Mailpit)
 
 ```bash
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-Apps will be wired up in subsequent steps.
+Local services:
+- **Postgres**: `localhost:5433` (db: `signal_and_story`, user: `signal`, pass: `story`)
+- **Mailpit (SMTP)**: `localhost:1026`
+- **Mailpit UI**: `http://localhost:8026`
+- **Adminer**: `http://localhost:8081`
+
+### 2) Database migrations + seed
+
+```bash
+./scripts/db-reset-and-seed.sh
+```
+
+### 3) Environment variables
+
+Copy `.env.example` to `.env` at the repo root and fill values as needed:
+
+- **Auth**: `BETTER_AUTH_SECRET`, `AUTH_BASE_URL`
+- **Polar**: `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_CART_PRODUCT_ID`
+- **Email**: for local dev, SMTP uses Mailpit; for prod, set `BREVO_API_KEY` and sender fields.
+
+### 4) Auth service (Better Auth)
+
+```bash
+cd apps/auth
+npm install
+npm run dev
+```
+
+Auth runs on `http://localhost:8787` and exposes:
+- Better Auth routes: `/api/auth/*`
+- Session bridge for Go: `/internal/session`
+
+> Note: Better Auth DB tables are created via the Better Auth CLI. If you need to run migrations:
+>
+> `cd apps/auth && npx auth migrate --config ./auth.ts`
+
+### 5) API (Go)
+
+```bash
+cd apps/api
+go run ./cmd/api
+```
+
+API runs on `http://localhost:8788`.
+### 6) Storefront (Astro)
+
+```bash
+cd apps/storefront
+npm install
+npm run dev
+```
+
+Storefront runs on `http://localhost:4321`.
+
+## Polar setup notes (Checkout Session)
+
+Polar checkout sessions are created with a **single “cart” product** and a **custom amount** (subtotal + shipping) sent as `amount`.
+
+- Create a Polar product intended for cart checkouts (custom price).
+- Set `POLAR_CART_PRODUCT_ID` to that product UUID.
+- Set `POLAR_SUCCESS_URL` to `http://localhost:4321/checkout/success` (the API will append `checkout_session_id`).
+
+### Shipping options
+
+The storefront offers:
+- `standard` (free)
+- `express` (£2.99)
+- `next-day` (£5.99)
+
+## Webhooks
+
+Point your Polar webhook endpoint to:
+
+- `POST http://<public-url>/webhooks/polar`
+
+The handler verifies Standard Webhooks headers:
+- `webhook-id`
+- `webhook-timestamp`
+- `webhook-signature`
+
+`POLAR_WEBHOOK_SECRET` must be the **base64** secret provided by Polar.
 
