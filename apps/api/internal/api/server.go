@@ -51,6 +51,8 @@ func (s *Server) routes() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
+	s.r.Post("/webhooks/polar", s.handlePolarWebhook)
+
 	s.r.Route("/api", func(r chi.Router) {
 		r.Get("/products", s.handleProductsList)
 		r.Get("/products/{handle}", s.handleProductDetail)
