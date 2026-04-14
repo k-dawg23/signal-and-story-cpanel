@@ -12,7 +12,7 @@ const { title = "Signal & Story", description = "Gear for Every Universe" } = As
     <meta name="description" content={description} />
     <script is:inline>
       // Load HTMX + Alpine from CDN for now (swap to local later if desired)
-      window.__SAS__ = { apiBase: (import.meta.env.PUBLIC_API_BASE || "http://localhost:8788") };
+      window.__SAS__ = { apiBase: (import.meta.env.PUBLIC_API_BASE || "http://127.0.0.1:8788") };
     </script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
