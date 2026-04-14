@@ -13,6 +13,7 @@ type Config struct {
 	PolarSuccessURL    string
 	PolarCancelURL     string
 	PolarWebhookSecret string
+	PolarCartProductID string
 }
 
 func LoadConfigFromEnv() Config {
@@ -29,6 +30,7 @@ func LoadConfigFromEnv() Config {
 		PolarSuccessURL:   os.Getenv("POLAR_SUCCESS_URL"),
 		PolarCancelURL:    os.Getenv("POLAR_CANCEL_URL"),
 		PolarWebhookSecret: os.Getenv("POLAR_WEBHOOK_SECRET"),
+		PolarCartProductID: os.Getenv("POLAR_CART_PRODUCT_ID"),
 	}
 }
 

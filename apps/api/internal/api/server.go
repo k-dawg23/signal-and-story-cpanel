@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -129,8 +133,100 @@ func (s *Server) handleProductDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Request) {
-	// Implemented in Polar todo: validate cart, price from DB, create Polar Checkout Session.
-	writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "not_implemented"})
+	if s.cfg.PolarAccessToken == "" || s.cfg.PolarSuccessURL == "" || s.cfg.PolarCancelURL == "" || s.cfg.PolarCartProductID == "" {
+		writeJSON(w, http.StatusPreconditionFailed, map[string]string{"error": "polar_not_configured"})
+		return
+	}
+
+	type cartItem struct {
+		Handle   string `json:"handle"`
+		Quantity int    `json:"quantity"`
+	}
+	type reqBody struct {
+		Items    []cartItem `json:"items"`
+		Shipping string     `json:"shipping"`
+	}
+	var body reqBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_json"})
+		return
+	}
+	if len(body.Items) == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "empty_cart"})
+		return
+	}
+
+	shippingCents := shippingCost(body.Shipping)
+	if shippingCents < 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_shipping"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Price authority: load all products by handle from DB.
+	subtotal := 0
+	type pricedItem struct {
+		Handle   string `json:"handle"`
+		Name     string `json:"name"`
+		Price    int    `json:"unit_price_cents"`
+		Quantity int    `json:"quantity"`
+	}
+	var priced []pricedItem
+	for _, it := range body.Items {
+		if it.Quantity <= 0 || it.Quantity > 20 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_quantity"})
+			return
+		}
+		p, err := s.queryProductByHandle(ctx, it.Handle)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_product"})
+			return
+		}
+		subtotal += p.PriceCents * it.Quantity
+		priced = append(priced, pricedItem{
+			Handle:   p.Handle,
+			Name:     p.Name,
+			Price:    p.PriceCents,
+			Quantity: it.Quantity,
+		})
+	}
+
+	userID := strings.TrimSpace(r.Header.Get("X-User-Id"))
+	email := strings.TrimSpace(r.Header.Get("X-User-Email"))
+
+	var checkoutSessionID string
+	if err := s.db.QueryRow(ctx,
+		`INSERT INTO checkout_sessions (user_id, email, cart, shipping_method, shipping_cents, subtotal_cents, currency)
+		 VALUES ($1, $2, $3, $4, $5, $6, 'GBP')
+		 RETURNING id::text`,
+		nullIfEmpty(userID), nullIfEmpty(email), mustJSON(priced), body.Shipping, shippingCents, subtotal,
+	).Scan(&checkoutSessionID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "db_error"})
+		return
+	}
+
+	amountCents := subtotal + shippingCents
+	checkoutURL, err := s.createPolarCheckout(ctx, polarCheckoutCreate{
+		CartProductID:      s.cfg.PolarCartProductID,
+		AmountCents:        amountCents,
+		Currency:           "GBP",
+		SuccessURL:         addQuery(s.cfg.PolarSuccessURL, "checkout_session_id", checkoutSessionID),
+		CancelURL:          s.cfg.PolarCancelURL,
+		ExternalCustomerID: userID,
+		CustomerEmail:      email,
+		Metadata: map[string]any{
+			"checkout_session_id": checkoutSessionID,
+			"shipping_method":     body.Shipping,
+		},
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "polar_error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"checkout_url": checkoutURL})
 }
 
 func (s *Server) handleAccountOrders(w http.ResponseWriter, r *http.Request) {
@@ -306,5 +402,104 @@ func escapeLike(s string) string {
 	// Basic escaping for LIKE wildcard characters.
 	replacer := strings.NewReplacer(`%`, `\\%`, `_`, `\\_`)
 	return replacer.Replace(s)
+}
+
+func shippingCost(method string) int {
+	switch method {
+	case "standard":
+		return 0
+	case "express":
+		return 299
+	case "next-day":
+		return 599
+	default:
+		return -1
+	}
+}
+
+func mustJSON(v any) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}
+
+func nullIfEmpty(s string) any {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return s
+}
+
+func addQuery(rawURL, key, value string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	q := u.Query()
+	q.Set(key, value)
+	u.RawQuery = q.Encode()
+	return u.String()
+}
+
+type polarCheckoutCreate struct {
+	CartProductID      string
+	AmountCents        int
+	Currency           string
+	SuccessURL         string
+	CancelURL          string
+	ExternalCustomerID string
+	CustomerEmail      string
+	Metadata           map[string]any
+}
+
+func (s *Server) createPolarCheckout(ctx context.Context, in polarCheckoutCreate) (string, error) {
+	endpoint := os.Getenv("POLAR_API_BASE_URL")
+	if endpoint == "" {
+		endpoint = "https://api.polar.sh"
+	}
+	u, _ := url.Parse(endpoint)
+	u.Path = "/v1/checkouts/"
+
+	payload := map[string]any{
+		"products": []string{in.CartProductID},
+		"amount":   in.AmountCents,
+		"currency": in.Currency,
+		"success_url": in.SuccessURL,
+		"cancel_url":  in.CancelURL,
+		"metadata":    in.Metadata,
+	}
+	if strings.TrimSpace(in.ExternalCustomerID) != "" {
+		payload["external_customer_id"] = in.ExternalCustomerID
+	}
+	if strings.TrimSpace(in.CustomerEmail) != "" {
+		payload["customer_email"] = in.CustomerEmail
+	}
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(string(body)))
+	req.Header.Set("Authorization", "Bearer "+s.cfg.PolarAccessToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("polar status %d: %s", resp.StatusCode, string(b))
+	}
+
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out.URL == "" {
+		return "", errors.New("missing url in polar response")
+	}
+	return out.URL, nil
 }
 
