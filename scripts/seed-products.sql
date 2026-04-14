@@ -31,7 +31,7 @@ WITH upsert_products AS (
     ('runegrid-poster-set', 'Runegrid Poster Set', 'Two A2 prints—one neon grid, one rune parchment. For studios that feel like a **portal room**.\n\n- Size: A2\n- Pack: 2\n- Universe: mixed', 2499, 'GBP', 21, true, '/images/products/runegrid-poster-set.webp')
   ON CONFLICT (handle) DO UPDATE SET
     name = EXCLUDED.name,
-    description_md = EXCLUDED.description_md,
+    description_md = replace(EXCLUDED.description_md, '\\n', E'\n'),
     price_cents = EXCLUDED.price_cents,
     currency = EXCLUDED.currency,
     featured_rank = EXCLUDED.featured_rank,

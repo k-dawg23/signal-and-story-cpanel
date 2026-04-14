@@ -12,6 +12,7 @@ const data = await safeGetJSON<{ products: any[] }>(
   `/api/products?collection=${encodeURIComponent(handle ?? "")}`,
   { products: [] }
 );
+const products = Array.isArray((data as any)?.products) ? (data as any).products : [];
 ---
 <Base title={`${collection?.name ?? handle} — Signal & Story`}>
   <div style="display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -22,9 +23,9 @@ const data = await safeGetJSON<{ products: any[] }>(
     <a class="tag" href="/collections">All collections</a>
   </div>
   <div style="height:12px"></div>
-  {data.products.length ? (
+  {products.length ? (
     <div class="grid cols3">
-      {data.products.map((p) => <ProductCard product={p} />)}
+      {products.map((p) => <ProductCard product={p} />)}
     </div>
   ) : (
     <div class="card" style="padding:14px">

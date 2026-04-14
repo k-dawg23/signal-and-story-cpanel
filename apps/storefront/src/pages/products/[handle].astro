@@ -3,6 +3,7 @@ export const prerender = false;
 
 import Base from "../../layouts/Base.astro";
 import { safeGetJSON } from "../../lib/api";
+import { renderProductDescription } from "../../lib/markdown";
 
 const { handle } = Astro.params;
 const data = await safeGetJSON<{ product: any | null }>(
@@ -11,6 +12,7 @@ const data = await safeGetJSON<{ product: any | null }>(
 );
 const p = data.product;
 const price = p ? `£${(p.price_cents / 100).toFixed(2)}` : "";
+const descHtml = p ? renderProductDescription(p.description_md ?? "") : "";
 ---
 <Base title={`${p?.name ?? "Product"} — Signal & Story`}>
   {p ? (
@@ -23,7 +25,7 @@ const price = p ? `£${(p.price_cents / 100).toFixed(2)}` : "";
       </div>
       <h1 style="margin:0;line-height:1.1">{p.name}</h1>
       <div class="tag" style="display:inline-flex;width:max-content;border-color: rgba(34,211,238,.35)">{price}</div>
-      <div style="color:var(--muted);line-height:1.7;white-space:pre-wrap">{p.description_md}</div>
+      <div style="color:var(--muted);line-height:1.7" set:html={descHtml} />
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn" type="button" onclick={`window.cart.add(${JSON.stringify(p)})`}>Add to cart</button>
         <button class="btn secondary" type="button" onclick="window.cart.openDrawer()">Open cart</button>
