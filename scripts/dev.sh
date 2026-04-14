@@ -70,7 +70,7 @@ if command -v go >/dev/null 2>&1; then
   (cd "${ROOT_DIR}/apps/api" && go run ./cmd/api) &
   PIDS+=("$!")
 else
-  echo "Go is not installed; skipping API start. Install Go and rerun." >&2
+  echo "Go is not installed; skipping API start. The storefront will run in offline-catalog mode." >&2
 fi
 
 echo "Starting storefront on http://localhost:4321 ..."
@@ -81,7 +81,7 @@ echo
 echo "Dev stack is running:"
 echo "- Storefront: http://localhost:4321"
 echo "- Auth:       http://localhost:${AUTH_PORT}"
-echo "- API:        http://localhost:8788"
+echo "- API:        http://localhost:8788 (requires Go)"
 echo "- Mailpit UI: http://localhost:8026"
 echo
 echo "Press Ctrl+C to stop."

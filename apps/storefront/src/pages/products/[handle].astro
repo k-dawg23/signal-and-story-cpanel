@@ -1,13 +1,17 @@
 ---
 import Base from "../../layouts/Base.astro";
-import { getJSON } from "../../lib/api";
+import { safeGetJSON } from "../../lib/api";
 
 const { handle } = Astro.params;
-const data = await getJSON<{ product: any }>(`/api/products/${encodeURIComponent(handle ?? "")}`);
+const data = await safeGetJSON<{ product: any | null }>(
+  `/api/products/${encodeURIComponent(handle ?? "")}`,
+  { product: null }
+);
 const p = data.product;
-const price = `£${(p.price_cents / 100).toFixed(2)}`;
+const price = p ? `£${(p.price_cents / 100).toFixed(2)}` : "";
 ---
-<Base title={`${p.name} — Signal & Story`}>
+<Base title={`${p?.name ?? "Product"} — Signal & Story`}>
+  {p ? (
   <div class="grid cols2" style="align-items:start">
     <div class="card" style="height:320px;border-radius:18px;overflow:hidden;background:linear-gradient(135deg, rgba(168,85,247,.18), rgba(34,211,238,.10))"></div>
     <section class="card" style="padding:16px;display:grid;gap:12px">
@@ -24,5 +28,13 @@ const price = `£${(p.price_cents / 100).toFixed(2)}`;
       </div>
     </section>
   </div>
+  ) : (
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800">Product unavailable</div>
+      <div style="color:var(--muted);margin-top:6px">Start the Go API to load product details.</div>
+      <div style="height:10px"></div>
+      <a class="btn secondary" href="/collections/all">Back to catalog</a>
+    </div>
+  )}
 </Base>
 

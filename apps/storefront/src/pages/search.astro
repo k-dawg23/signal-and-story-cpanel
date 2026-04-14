@@ -1,10 +1,12 @@
 ---
 import Base from "../layouts/Base.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { getJSON } from "../lib/api";
+import { safeGetJSON } from "../lib/api";
 
 const q = Astro.url.searchParams.get("q") ?? "";
-const data = q ? await getJSON<{ products: any[] }>(`/api/products?q=${encodeURIComponent(q)}`) : { products: [] };
+const data = q
+  ? await safeGetJSON<{ products: any[] }>(`/api/products?q=${encodeURIComponent(q)}`, { products: [] })
+  : { products: [] };
 ---
 <Base title="Search — Signal & Story">
   <h1 style="margin:0">Search</h1>
@@ -27,8 +29,8 @@ const data = q ? await getJSON<{ products: any[] }>(`/api/products?q=${encodeURI
       </div>
     ) : (
       <div class="card" style="padding:14px">
-        <div style="font-weight:800">No matches</div>
-        <div style="color:var(--muted);margin-top:6px">Try a different keyword.</div>
+        <div style="font-weight:800">No results (or catalog offline)</div>
+        <div style="color:var(--muted);margin-top:6px">If the API isn’t running, search can’t query products.</div>
       </div>
     )
   ) : (

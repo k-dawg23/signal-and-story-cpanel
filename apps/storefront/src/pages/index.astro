@@ -1,9 +1,9 @@
 ---
 import Base from "../layouts/Base.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { getJSON } from "../lib/api";
+import { safeGetJSON } from "../lib/api";
 
-const data = await getJSON<{ products: any[] }>("/api/products");
+const data = await safeGetJSON<{ products: any[] }>("/api/products", { products: [] });
 const featured = data.products.slice(0, 6);
 ---
 <Base title="Signal & Story — Gear for Every Universe">
@@ -51,9 +51,18 @@ const featured = data.products.slice(0, 6);
       <a class="tag" href="/collections/all">View all</a>
     </div>
     <div style="height:12px"></div>
-    <div class="grid cols3">
-      {featured.map((p) => <ProductCard product={p} />)}
-    </div>
+    {featured.length ? (
+      <div class="grid cols3">
+        {featured.map((p) => <ProductCard product={p} />)}
+      </div>
+    ) : (
+      <div class="card" style="padding:14px">
+        <div style="font-weight:800">Catalog service offline</div>
+        <div style="color:var(--muted);margin-top:6px;line-height:1.6">
+          Start the Go API (or install Go) to load products.
+        </div>
+      </div>
+    )}
   </section>
 </Base>
 

@@ -1,9 +1,9 @@
 ---
 import Base from "../../layouts/Base.astro";
 import ProductCard from "../../components/ProductCard.astro";
-import { getJSON } from "../../lib/api";
+import { safeGetJSON } from "../../lib/api";
 
-const data = await getJSON<{ products: any[] }>("/api/products");
+const data = await safeGetJSON<{ products: any[] }>("/api/products", { products: [] });
 ---
 <Base title="All Products — Signal & Story">
   <div style="display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -14,8 +14,15 @@ const data = await getJSON<{ products: any[] }>("/api/products");
     <a class="tag" href="/search">Search</a>
   </div>
   <div style="height:12px"></div>
-  <div class="grid cols3">
-    {data.products.map((p) => <ProductCard product={p} />)}
-  </div>
+  {data.products.length ? (
+    <div class="grid cols3">
+      {data.products.map((p) => <ProductCard product={p} />)}
+    </div>
+  ) : (
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800">Catalog service offline</div>
+      <div style="color:var(--muted);margin-top:6px">Start the Go API to load products.</div>
+    </div>
+  )}
 </Base>
 

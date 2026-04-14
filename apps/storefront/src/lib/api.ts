@@ -6,3 +6,11 @@ export async function getJSON<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function safeGetJSON<T>(path: string, fallback: T): Promise<T> {
+  try {
+    return await getJSON<T>(path);
+  } catch {
+    return fallback;
+  }
+}
+
