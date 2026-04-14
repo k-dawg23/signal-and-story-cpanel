@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: signal
       POSTGRES_PASSWORD: story
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,8 +18,8 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "1025:1025" # SMTP
-      - "8025:8025" # Web UI
+      - "1026:1025" # SMTP (host:container)
+      - "8026:8025" # Web UI (host:container)
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: "1"
       MP_SMTP_AUTH_ALLOW_INSECURE: "1"
@@ -28,7 +28,7 @@ services:
     image: adminer:latest
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       db:
         condition: service_healthy
