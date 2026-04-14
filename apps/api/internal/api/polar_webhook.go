@@ -191,6 +191,11 @@ func (s *Server) processPolarOrderPaid(ctx context.Context, raw json.RawMessage)
 		totalCents = int64(cs.SubtotalCents + cs.ShippingCents)
 	}
 
+	currency := strings.TrimSpace(cs.Currency)
+	if currency == "" {
+		currency = "GBP"
+	}
+
 	var orderDBID int64
 	err := s.db.QueryRow(ctx,
 		`INSERT INTO orders (polar_order_id, user_id, email, status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents, shipping_method)
@@ -201,7 +206,7 @@ func (s *Server) processPolarOrderPaid(ctx context.Context, raw json.RawMessage)
 		cs.UserID,
 		email,
 		status,
-		coalesceStr(cs.Currency, "GBP"),
+		currency,
 		cs.SubtotalCents,
 		cs.ShippingCents,
 		0,
@@ -266,10 +271,5 @@ func getMap(m map[string]any, key string) map[string]any {
 	return map[string]any{}
 }
 
-func coalesceStr(p *string, fallback string) string {
-	if p != nil && strings.TrimSpace(*p) != "" {
-		return *p
-	}
-	return fallback
-}
+// (no string helpers needed here)
 
