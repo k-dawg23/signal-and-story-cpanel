@@ -91,6 +91,7 @@ if GO_CMD="$(find_go)"; then
   echo "Starting API on http://localhost:8788 ..."
   API_LOG="${ROOT_DIR}/tmp/api.log"
   mkdir -p "${ROOT_DIR}/tmp"
+  (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" mod download) >/dev/null 2>&1 || true
   (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" run ./cmd/api) >"${API_LOG}" 2>&1 &
   API_PID="$!"
   PIDS+=("${API_PID}")
