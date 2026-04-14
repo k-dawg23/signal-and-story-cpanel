@@ -1,0 +1,60 @@
+---
+import Base from "../../layouts/Base.astro";
+import { categoryCollections, themeCollections, instrumentCollections } from "../../lib/collections";
+---
+<Base title="Collections — Signal & Story">
+  <h1 style="margin:0">Collections</h1>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Browse by category, theme, or instrument.</p>
+
+  <div style="height:14px"></div>
+
+  <div class="grid cols2">
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">Categories</h2>
+      <div style="height:10px"></div>
+      <div class="grid">
+        {categoryCollections.map((c) => (
+          <a class="card" style="padding:12px;border-radius:14px" href={`/collections/${c.slug}`}>
+            <div style="font-weight:800">{c.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Curated gear.</div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">Themes</h2>
+      <div style="height:10px"></div>
+      <div class="grid">
+        {themeCollections.map((c) => (
+          <a class="card" style="padding:12px;border-radius:14px" href={`/collections/${c.slug}`}>
+            <div style="font-weight:800">{c.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Aesthetic + lore.</div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">Instruments</h2>
+      <div style="height:10px"></div>
+      <div class="grid">
+        {instrumentCollections.map((c) => (
+          <a class="card" style="padding:12px;border-radius:14px" href={`/collections/${c.slug}`}>
+            <div style="font-weight:800">{c.name}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Rig fit.</div>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">All products</h2>
+      <div style="height:10px"></div>
+      <a class="btn" href="/collections/all" style="width:100%">Browse everything</a>
+      <div style="height:10px"></div>
+      <div class="tag">Premium, mobile‑first storefront</div>
+    </section>
+  </div>
+</Base>
+

@@ -1,0 +1,28 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getJSON } from "../../lib/api";
+
+const { handle } = Astro.params;
+const data = await getJSON<{ product: any }>(`/api/products/${encodeURIComponent(handle ?? "")}`);
+const p = data.product;
+const price = `£${(p.price_cents / 100).toFixed(2)}`;
+---
+<Base title={`${p.name} — Signal & Story`}>
+  <div class="grid cols2" style="align-items:start">
+    <div class="card" style="height:320px;border-radius:18px;overflow:hidden;background:linear-gradient(135deg, rgba(168,85,247,.18), rgba(34,211,238,.10))"></div>
+    <section class="card" style="padding:16px;display:grid;gap:12px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="tag" style="border-color: rgba(168,85,247,.35)">Premium</span>
+        <span class="tag">Universe‑inspired</span>
+      </div>
+      <h1 style="margin:0;line-height:1.1">{p.name}</h1>
+      <div class="tag" style="display:inline-flex;width:max-content;border-color: rgba(34,211,238,.35)">{price}</div>
+      <div style="color:var(--muted);line-height:1.7;white-space:pre-wrap">{p.description_md}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" type="button" onclick={`window.cart.add(${JSON.stringify(p)})`}>Add to cart</button>
+        <button class="btn secondary" type="button" onclick="window.cart.openDrawer()">Open cart</button>
+      </div>
+    </section>
+  </div>
+</Base>
+

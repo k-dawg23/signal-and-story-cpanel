@@ -1,0 +1,119 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Checkout — Signal & Story">
+  <h1 style="margin:0">Checkout</h1>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Review your order, choose shipping, then continue to Polar’s hosted checkout.</p>
+
+  <div style="height:12px"></div>
+
+  <div class="grid cols2" style="align-items:start">
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">Order summary</h2>
+      <div style="height:10px"></div>
+      <div id="summary"></div>
+    </section>
+
+    <section class="card" style="padding:14px">
+      <h2 style="margin:0">Shipping</h2>
+      <div style="height:10px"></div>
+      <div class="grid" style="gap:10px">
+        <label class="card" style="padding:12px;display:flex;gap:10px;align-items:center">
+          <input type="radio" name="shipping" value="standard" checked />
+          <div style="flex:1">
+            <div style="font-weight:800">Standard</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">Free • 3–5 days</div>
+          </div>
+          <div class="tag">£0.00</div>
+        </label>
+        <label class="card" style="padding:12px;display:flex;gap:10px;align-items:center">
+          <input type="radio" name="shipping" value="express" />
+          <div style="flex:1">
+            <div style="font-weight:800">Express</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">£2.99 • 2 days</div>
+          </div>
+          <div class="tag">£2.99</div>
+        </label>
+        <label class="card" style="padding:12px;display:flex;gap:10px;align-items:center">
+          <input type="radio" name="shipping" value="next-day" />
+          <div style="flex:1">
+            <div style="font-weight:800">Next day</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">£5.99 • 1 day</div>
+          </div>
+          <div class="tag">£5.99</div>
+        </label>
+      </div>
+
+      <div style="height:12px"></div>
+      <button class="btn" type="button" onclick="beginCheckout()" style="width:100%">Continue to Polar checkout</button>
+      <div style="height:10px"></div>
+      <div class="tag">Taxes are calculated automatically at checkout.</div>
+    </section>
+  </div>
+
+  <script is:inline>
+    const money = (c) => `£${(c/100).toFixed(2)}`;
+    const shippingCost = (m) => (m === "express" ? 299 : m === "next-day" ? 599 : 0);
+
+    function renderSummary(){
+      const root = document.getElementById("summary");
+      if (!root || !window.cart) return;
+      const items = window.cart.read();
+      if (!items.length){
+        root.innerHTML = `<div class="tag">Your cart is empty. <a href="/collections/all">Browse products</a></div>`;
+        return;
+      }
+      const ship = document.querySelector("input[name=shipping]:checked")?.value || "standard";
+      const subtotal = window.cart.subtotal();
+      const shipping = shippingCost(ship);
+      root.innerHTML = `
+        <div class="grid" style="gap:10px">
+          ${items.map(it => `
+            <div style="display:flex;justify-content:space-between;gap:10px">
+              <div>
+                <div style="font-weight:700">${it.name}</div>
+                <div style="color:var(--muted);font-size:12px;margin-top:2px">Qty ${it.quantity}</div>
+              </div>
+              <div class="tag">${money(it.price_cents * it.quantity)}</div>
+            </div>
+          `).join("")}
+          <div style="height:1px;background:var(--line)"></div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--muted)">Subtotal</span><strong>${money(subtotal)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--muted)">Shipping</span><strong>${money(shipping)}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--muted)">Total (pre‑tax)</span><strong>${money(subtotal + shipping)}</strong>
+          </div>
+        </div>
+      `;
+    }
+    document.addEventListener("change", (e) => {
+      if (e.target?.name === "shipping") renderSummary();
+    });
+    setInterval(renderSummary, 500);
+    renderSummary();
+
+    async function beginCheckout(){
+      if (!window.cart) return;
+      const items = window.cart.read().map(it => ({ handle: it.handle, quantity: it.quantity }));
+      const shipping = document.querySelector("input[name=shipping]:checked")?.value || "standard";
+      const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
+      const res = await fetch(`${apiBase}/api/checkout/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ items, shipping }),
+      });
+      const data = await res.json();
+      if (!res.ok){
+        alert(data?.error || "Checkout failed");
+        return;
+      }
+      window.location.href = data.checkout_url;
+    }
+  </script>
+</Base>
+

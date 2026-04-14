@@ -1,0 +1,25 @@
+---
+import Base from "../../layouts/Base.astro";
+const checkoutSessionID = Astro.url.searchParams.get("checkout_session_id");
+---
+<Base title="Order confirmed — Signal & Story">
+  <section class="card" style="padding:18px;max-width:760px;margin:0 auto">
+    <div class="tag" style="display:inline-flex;gap:8px;align-items:center;border-color:rgba(34,211,238,.35)">
+      <span style="width:8px;height:8px;border-radius:999px;background:var(--neon2);box-shadow:0 0 20px rgba(34,211,238,.45)"></span>
+      Payment successful
+    </div>
+    <h1 style="margin:14px 0 0 0">Order confirmed</h1>
+    <p style="color:var(--muted);line-height:1.7;margin-top:10px">
+      You’ll receive a confirmation email shortly.
+    </p>
+    {checkoutSessionID ? (
+      <div class="tag">Checkout session: <strong>{checkoutSessionID}</strong></div>
+    ) : null}
+    <div style="height:14px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn" href="/collections/all">Keep browsing</a>
+      <a class="btn secondary" href="/account">View order history</a>
+    </div>
+  </section>
+</Base>
+

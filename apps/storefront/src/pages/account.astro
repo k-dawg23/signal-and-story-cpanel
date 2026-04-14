@@ -1,0 +1,82 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Account — Signal & Story">
+  <h1 style="margin:0">Account</h1>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Magic link login and your order history.</p>
+
+  <div style="height:12px"></div>
+
+  <section class="grid cols2" style="align-items:start">
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0">Sign in</h2>
+      <p style="color:var(--muted);margin-top:10px;line-height:1.6">Enter your email. We’ll send a one‑time link.</p>
+      <div style="height:10px"></div>
+      <form class="card" style="padding:12px;display:flex;gap:10px;flex-wrap:wrap" onsubmit="return sendMagicLink(event)">
+        <input id="email" type="email" required placeholder="you@example.com" style="flex:1;min-width:220px;padding:12px 12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+        <button class="btn" type="submit">Send link</button>
+      </form>
+      <div style="height:10px"></div>
+      <div id="login-status" class="tag">Not signed in.</div>
+    </div>
+
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0">Order history</h2>
+      <p style="color:var(--muted);margin-top:10px;line-height:1.6">After signing in, your orders will appear here.</p>
+      <div style="height:10px"></div>
+      <div id="orders" class="tag">No orders loaded yet.</div>
+      <div style="height:10px"></div>
+      <button class="btn secondary" type="button" onclick="loadOrders()">Refresh</button>
+    </div>
+  </section>
+
+  <script is:inline>
+    const authBase = (import.meta.env.PUBLIC_AUTH_BASE || "http://localhost:8787");
+    const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
+
+    async function sendMagicLink(e){
+      e.preventDefault();
+      const email = document.getElementById("email")?.value;
+      if (!email) return false;
+      const res = await fetch(`${authBase}/api/auth/sign-in/magic-link`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email }),
+      });
+      const s = document.getElementById("login-status");
+      if (res.ok) s.textContent = "Magic link sent. Check your inbox (Mailpit in dev).";
+      else s.textContent = "Could not send link.";
+      return false;
+    }
+
+    async function loadOrders(){
+      const root = document.getElementById("orders");
+      root.textContent = "Loading…";
+      const res = await fetch(`${apiBase}/api/account/orders`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok){
+        root.textContent = "Sign in to view orders.";
+        return;
+      }
+      const orders = data.orders || [];
+      if (!orders.length){
+        root.textContent = "No orders yet.";
+        return;
+      }
+      root.innerHTML = `<div class="grid" style="gap:10px">
+        ${orders.map(o => `
+          <div class="card" style="padding:12px;display:flex;justify-content:space-between;gap:10px">
+            <div>
+              <div style="font-weight:800">Order #${o.id}</div>
+              <div style="color:var(--muted);font-size:12px;margin-top:4px">${o.status}</div>
+            </div>
+            <div class="tag">£${(o.total_cents/100).toFixed(2)}</div>
+          </div>
+        `).join("")}
+      </div>`;
+    }
+    window.loadOrders = loadOrders;
+  </script>
+</Base>
+

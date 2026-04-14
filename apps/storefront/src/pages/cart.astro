@@ -1,0 +1,57 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Cart — Signal & Story">
+  <h1 style="margin:0">Cart</h1>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Adjust quantities, then continue to checkout.</p>
+
+  <div style="height:12px"></div>
+
+  <div class="card" style="padding:14px" x-data x-init="window.cart?.openDrawer(); window.cart?.closeDrawer();">
+    <div id="cart-page"></div>
+    <script is:inline>
+      const money = (c) => `£${(c/100).toFixed(2)}`;
+      const render = () => {
+        const root = document.getElementById("cart-page");
+        if (!root || !window.cart) return;
+        const items = window.cart.read();
+        if (!items.length){
+          root.innerHTML = `<div class="tag">Your cart is empty. <a href="/collections/all">Browse products</a></div>`;
+          return;
+        }
+        root.innerHTML = `
+          <div class="grid" style="gap:10px">
+            ${items.map(it => `
+              <div class="card" style="padding:12px;display:grid;gap:10px">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                  <div>
+                    <div style="font-weight:800">${it.name}</div>
+                    <div style="color:var(--muted);font-size:12px;margin-top:4px">${money(it.price_cents)} each</div>
+                  </div>
+                  <button class="btn secondary" type="button" onclick="window.cart.remove('${it.handle}')">Remove</button>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <button class="btn secondary" type="button" onclick="window.cart.dec('${it.handle}')">-</button>
+                    <span class="tag">${it.quantity}</span>
+                    <button class="btn secondary" type="button" onclick="window.cart.inc('${it.handle}')">+</button>
+                  </div>
+                  <div class="tag">Line: <strong>${money(it.price_cents * it.quantity)}</strong></div>
+                </div>
+              </div>
+            `).join("")}
+            <div class="card" style="padding:12px;display:flex;justify-content:space-between">
+              <span style="color:var(--muted)">Subtotal</span>
+              <strong>${money(window.cart.subtotal())}</strong>
+            </div>
+            <a class="btn" href="/checkout" style="width:100%">Continue to checkout</a>
+          </div>
+        `;
+      };
+      window.addEventListener("storage", render);
+      setInterval(render, 400);
+      render();
+    </script>
+  </div>
+</Base>
+

@@ -1,0 +1,31 @@
+---
+import Base from "../../layouts/Base.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { getJSON } from "../../lib/api";
+import { allCollections } from "../../lib/collections";
+
+const { handle } = Astro.params;
+const collection = allCollections.find((c) => c.slug === handle);
+const data = await getJSON<{ products: any[] }>(`/api/products?collection=${encodeURIComponent(handle ?? "")}`);
+---
+<Base title={`${collection?.name ?? handle} — Signal & Story`}>
+  <div style="display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div>
+      <h1 style="margin:0">{collection?.name ?? handle}</h1>
+      <div style="color:var(--muted);font-size:13px;margin-top:8px">Curated to match a world.</div>
+    </div>
+    <a class="tag" href="/collections">All collections</a>
+  </div>
+  <div style="height:12px"></div>
+  {data.products.length ? (
+    <div class="grid cols3">
+      {data.products.map((p) => <ProductCard product={p} />)}
+    </div>
+  ) : (
+    <div class="card" style="padding:14px">
+      <div style="font-weight:800">No products yet</div>
+      <div style="color:var(--muted);margin-top:6px">This collection will fill as the universe expands.</div>
+    </div>
+  )}
+</Base>
+

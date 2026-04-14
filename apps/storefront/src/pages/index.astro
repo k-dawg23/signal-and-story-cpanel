@@ -1,0 +1,59 @@
+---
+import Base from "../layouts/Base.astro";
+import ProductCard from "../components/ProductCard.astro";
+import { getJSON } from "../lib/api";
+
+const data = await getJSON<{ products: any[] }>("/api/products");
+const featured = data.products.slice(0, 6);
+---
+<Base title="Signal & Story — Gear for Every Universe">
+  <section class="card" style="padding:18px;overflow:hidden;position:relative">
+    <div style="display:grid;gap:14px;max-width:720px">
+      <div class="tag" style="display:inline-flex;gap:8px;align-items:center;border-color:rgba(34,211,238,.35)">
+        <span style="width:8px;height:8px;border-radius:999px;background:var(--neon2);box-shadow:0 0 20px rgba(34,211,238,.45)"></span>
+        Premium • Handcrafted • Universe‑inspired
+      </div>
+      <h1 style="margin:0;font-size:34px;line-height:1.1;letter-spacing:-.02em">
+        Gear for Every Universe.
+      </h1>
+      <p style="margin:0;color:var(--muted);font-size:15px;line-height:1.6">
+        From neon alley pedalboards to rune‑etched practice tools — every piece is designed to feel like it belongs to a world.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="btn" href="/collections/all">Browse all products</a>
+        <a class="btn secondary" href="/collections">Explore collections</a>
+      </div>
+      <div class="grid cols3" style="margin-top:12px">
+        <div class="card" style="padding:12px">
+          <div style="font-weight:800">Premium materials</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:6px">Built for stages, studios, and starships.</div>
+        </div>
+        <div class="card" style="padding:12px">
+          <div style="font-weight:800">Story-first design</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:6px">Gear that looks and sounds like lore.</div>
+        </div>
+        <div class="card" style="padding:12px">
+          <div style="font-weight:800">Fast checkout</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:6px">Hosted payments + confirmation email.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div style="height:18px"></div>
+
+  <section>
+    <div style="display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <div>
+        <h2 style="margin:0">Featured</h2>
+        <div style="color:var(--muted);font-size:13px;margin-top:6px">The staples of a traveler’s rig.</div>
+      </div>
+      <a class="tag" href="/collections/all">View all</a>
+    </div>
+    <div style="height:12px"></div>
+    <div class="grid cols3">
+      {featured.map((p) => <ProductCard product={p} />)}
+    </div>
+  </section>
+</Base>
+

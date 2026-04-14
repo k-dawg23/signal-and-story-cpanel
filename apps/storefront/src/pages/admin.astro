@@ -1,0 +1,79 @@
+---
+import Base from "../layouts/Base.astro";
+---
+<Base title="Admin — Signal & Story">
+  <h1 style="margin:0">Admin</h1>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Restricted to <strong>kenneth.rough@gmail.com</strong>.</p>
+
+  <div style="height:12px"></div>
+
+  <section class="grid cols2" style="align-items:start">
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0">Overview</h2>
+      <div style="height:10px"></div>
+      <div id="overview" class="tag">Loading…</div>
+    </div>
+    <div class="card" style="padding:14px">
+      <h2 style="margin:0">Recent orders</h2>
+      <div style="height:10px"></div>
+      <div id="orders" class="tag">Loading…</div>
+    </div>
+  </section>
+
+  <div style="height:12px"></div>
+
+  <section class="card" style="padding:14px">
+    <h2 style="margin:0">Products</h2>
+    <div style="height:10px"></div>
+    <div id="products" class="tag">Loading…</div>
+  </section>
+
+  <script is:inline>
+    const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
+    async function loadAdmin(){
+      const overviewEl = document.getElementById("overview");
+      const ordersEl = document.getElementById("orders");
+      const productsEl = document.getElementById("products");
+
+      const [ov, ord, pro] = await Promise.all([
+        fetch(`${apiBase}/api/admin/overview`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
+        fetch(`${apiBase}/api/admin/orders`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
+        fetch(`${apiBase}/api/admin/products`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
+      ]);
+
+      if (!ov[0] || !ord[0] || !pro[0]){
+        overviewEl.textContent = "Forbidden. Ensure you are signed in as the admin email.";
+        ordersEl.textContent = "—";
+        productsEl.textContent = "—";
+        return;
+      }
+
+      overviewEl.innerHTML = `<div class="grid cols2">
+        <div class="card" style="padding:12px"><div style="color:var(--muted);font-size:12px">Revenue</div><div style="font-weight:900;font-size:22px;margin-top:6px">£${(ov[1].revenue_cents/100).toFixed(2)}</div></div>
+        <div class="card" style="padding:12px"><div style="color:var(--muted);font-size:12px">Orders</div><div style="font-weight:900;font-size:22px;margin-top:6px">${ov[1].orders_count}</div></div>
+      </div>`;
+
+      const orders = ord[1].orders || [];
+      ordersEl.innerHTML = orders.length ? `<div class="grid" style="gap:10px">
+        ${orders.slice(0,10).map(o => `
+          <div class="card" style="padding:12px;display:flex;justify-content:space-between;gap:10px">
+            <div><div style="font-weight:800">#${o.id}</div><div style="color:var(--muted);font-size:12px;margin-top:4px">${o.email}</div></div>
+            <div class="tag">£${(o.total_cents/100).toFixed(2)}</div>
+          </div>`).join("")}
+      </div>` : "No orders yet.";
+
+      const products = pro[1].products || [];
+      productsEl.innerHTML = `<div class="grid cols2">
+        ${products.slice(0,12).map(p => `
+          <div class="card" style="padding:12px">
+            <div style="font-weight:800">${p.name}</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:4px">${p.handle}</div>
+            <div class="tag" style="margin-top:8px">£${(p.price_cents/100).toFixed(2)}</div>
+          </div>
+        `).join("")}
+      </div>`;
+    }
+    loadAdmin();
+  </script>
+</Base>
+

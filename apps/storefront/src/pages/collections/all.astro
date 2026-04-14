@@ -1,0 +1,21 @@
+---
+import Base from "../../layouts/Base.astro";
+import ProductCard from "../../components/ProductCard.astro";
+import { getJSON } from "../../lib/api";
+
+const data = await getJSON<{ products: any[] }>("/api/products");
+---
+<Base title="All Products — Signal & Story">
+  <div style="display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <div>
+      <h1 style="margin:0">All products</h1>
+      <div style="color:var(--muted);font-size:13px;margin-top:8px">Every artifact in the catalog.</div>
+    </div>
+    <a class="tag" href="/search">Search</a>
+  </div>
+  <div style="height:12px"></div>
+  <div class="grid cols3">
+    {data.products.map((p) => <ProductCard product={p} />)}
+  </div>
+</Base>
+
