@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -40,6 +40,8 @@ func NewServer(cfg Config) (*Server, error) {
 func (s *Server) Router() http.Handler { return s.r }
 
 func (s *Server) routes() {
+	s.r.Use(s.attachUserFromAuthService)
+
 	s.r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -132,8 +134,47 @@ func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) handleAccountOrders(w http.ResponseWriter, r *http.Request) {
-	// Implemented after auth bridge: use X-User-Id / X-User-Email (verified by auth service)
-	writeJSON(w, http.StatusNotImplemented, map[string]string{"error": "not_implemented"})
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	userID := strings.TrimSpace(r.Header.Get("X-User-Id"))
+	email := strings.TrimSpace(r.Header.Get("X-User-Email"))
+	if userID == "" && email == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return
+	}
+
+	type orderRow struct {
+		ID         int64     `json:"id"`
+		Email      string    `json:"email"`
+		Status     string    `json:"status"`
+		TotalCents int64     `json:"total_cents"`
+		CreatedAt  time.Time `json:"created_at"`
+	}
+
+	var rows pgx.Rows
+	var err error
+	if userID != "" {
+		rows, err = s.db.Query(ctx, `SELECT id, email, status, total_cents, created_at FROM orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`, userID)
+	} else {
+		rows, err = s.db.Query(ctx, `SELECT id, email, status, total_cents, created_at FROM orders WHERE email=$1 ORDER BY created_at DESC LIMIT 50`, email)
+	}
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "db_error"})
+		return
+	}
+	defer rows.Close()
+
+	var out []orderRow
+	for rows.Next() {
+		var o orderRow
+		if err := rows.Scan(&o.ID, &o.Email, &o.Status, &o.TotalCents, &o.CreatedAt); err != nil {
+			continue
+		}
+		out = append(out, o)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"orders": out})
 }
 
 func (s *Server) handleAdminOverview(w http.ResponseWriter, r *http.Request) {
@@ -265,10 +306,5 @@ func escapeLike(s string) string {
 	// Basic escaping for LIKE wildcard characters.
 	replacer := strings.NewReplacer(`%`, `\\%`, `_`, `\\_`)
 	return replacer.Replace(s)
-}
-
-func mustParseURL(raw string) *url.URL {
-	u, _ := url.Parse(raw)
-	return u
 }
 
