@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.env.*
+node_modules/
+dist/
+.astro/
+.turbo/
+.cache/
+coverage/
+\n+# Go\n+bin/
+tmp/
+\n+# IDE\n+.vscode/
+.idea/
+\n*** End Patch
