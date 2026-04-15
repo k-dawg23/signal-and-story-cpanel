@@ -41,4 +41,3 @@ func main() {
 	defer cancel()
 	_ = httpSrv.Shutdown(ctx)
 }
-

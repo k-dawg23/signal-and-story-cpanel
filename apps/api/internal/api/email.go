@@ -13,14 +13,14 @@ import (
 	"time"
 )
 
-func (s *Server) sendOrderConfirmationEmail(toEmail, polarOrderID string) error {
+func (s *Server) sendOrderConfirmationEmail(toEmail, orderRef string) error {
 	subject := "Signal & Story — Order confirmed"
 	html := fmt.Sprintf(`<div style="font-family: ui-sans-serif, system-ui; line-height: 1.5">
   <h2>Gear for Every Universe</h2>
   <p>Your order is confirmed.</p>
   <p><strong>Order:</strong> %s</p>
   <p>If you have any questions, reply to this email.</p>
-</div>`, polarOrderID)
+</div>`, orderRef)
 
 	if apiKey := strings.TrimSpace(os.Getenv("BREVO_API_KEY")); apiKey != "" {
 		return sendBrevo(apiKey, toEmail, subject, html)
@@ -39,9 +39,9 @@ func sendBrevo(apiKey, toEmail, subject, html string) error {
 	}
 
 	payload := map[string]any{
-		"sender": map[string]any{"email": senderEmail, "name": senderName},
-		"to":     []map[string]any{{"email": toEmail}},
-		"subject": subject,
+		"sender":      map[string]any{"email": senderEmail, "name": senderName},
+		"to":          []map[string]any{{"email": toEmail}},
+		"subject":     subject,
 		"htmlContent": html,
 	}
 	b, _ := json.Marshal(payload)
@@ -100,4 +100,3 @@ func extractEmail(from string) string {
 	}
 	return strings.TrimSpace(from)
 }
-

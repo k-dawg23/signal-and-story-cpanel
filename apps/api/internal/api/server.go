@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/stripe/stripe-go/v78"
+	checkoutsession "github.com/stripe/stripe-go/v78/checkout/session"
 )
 
 type Server struct {
@@ -51,12 +51,12 @@ func (s *Server) routes() {
 		_, _ = w.Write([]byte("ok"))
 	})
 
-	s.r.Post("/webhooks/polar", s.handlePolarWebhook)
+	s.r.Post("/webhooks/stripe", s.handleStripeWebhook)
 
 	s.r.Route("/api", func(r chi.Router) {
 		r.Get("/products", s.handleProductsList)
 		r.Get("/products/{handle}", s.handleProductDetail)
-		r.Post("/checkout/session", s.handleCreateCheckoutSession) // Polar wiring in next todo
+		r.Post("/checkout/session", s.handleCreateCheckoutSession)
 		r.Get("/account/orders", s.handleAccountOrders)
 
 		r.Route("/admin", func(ar chi.Router) {
@@ -135,8 +135,8 @@ func (s *Server) handleProductDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.PolarAccessToken == "" || s.cfg.PolarSuccessURL == "" || s.cfg.PolarCancelURL == "" || s.cfg.PolarCartProductID == "" {
-		writeJSON(w, http.StatusPreconditionFailed, map[string]string{"error": "polar_not_configured"})
+	if strings.TrimSpace(s.cfg.StripeSecretKey) == "" || strings.TrimSpace(s.cfg.StripeSuccessURL) == "" || strings.TrimSpace(s.cfg.StripeCancelURL) == "" {
+		writeJSON(w, http.StatusPreconditionFailed, map[string]string{"error": "stripe_not_configured"})
 		return
 	}
 
@@ -209,26 +209,83 @@ func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	amountCents := subtotal + shippingCents
-	checkoutURL, err := s.createPolarCheckout(ctx, polarCheckoutCreate{
-		CartProductID:      s.cfg.PolarCartProductID,
-		AmountCents:        amountCents,
-		Currency:           "GBP",
-		SuccessURL:         addQuery(s.cfg.PolarSuccessURL, "checkout_session_id", checkoutSessionID),
-		CancelURL:          s.cfg.PolarCancelURL,
-		ExternalCustomerID: userID,
-		CustomerEmail:      email,
-		Metadata: map[string]any{
+	stripe.Key = strings.TrimSpace(s.cfg.StripeSecretKey)
+
+	params := &stripe.CheckoutSessionParams{
+		Mode:       stripe.String(string(stripe.CheckoutSessionModePayment)),
+		SuccessURL: stripe.String(addQuery(s.cfg.StripeSuccessURL, "checkout_session_id", checkoutSessionID)),
+		CancelURL:  stripe.String(s.cfg.StripeCancelURL),
+		AutomaticTax: &stripe.CheckoutSessionAutomaticTaxParams{
+			Enabled: stripe.Bool(true),
+		},
+		ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
+			AllowedCountries: stripe.StringSlice([]string{"GB", "IE", "FR", "DE", "NL", "BE", "ES", "IT", "SE", "DK", "NO"}),
+		},
+		BillingAddressCollection: stripe.String(string(stripe.CheckoutSessionBillingAddressCollectionRequired)),
+		Metadata: map[string]string{
 			"checkout_session_id": checkoutSessionID,
 			"shipping_method":     body.Shipping,
+			"user_id":             strings.TrimSpace(userID),
 		},
-	})
-	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "polar_error"})
+	}
+	if email != "" {
+		params.CustomerEmail = stripe.String(email)
+	}
+
+	// Convert DB-priced items into inline PriceData so we don't need Stripe Products/Prices.
+	for _, it := range priced {
+		params.LineItems = append(params.LineItems, &stripe.CheckoutSessionLineItemParams{
+			Quantity: stripe.Int64(int64(it.Quantity)),
+			PriceData: &stripe.CheckoutSessionLineItemPriceDataParams{
+				Currency: stripe.String("gbp"),
+				ProductData: &stripe.CheckoutSessionLineItemPriceDataProductDataParams{
+					Name: stripe.String(it.Name),
+					Metadata: map[string]string{
+						"handle": it.Handle,
+					},
+				},
+				UnitAmount:  stripe.Int64(int64(it.Price)),
+				TaxBehavior: stripe.String(string(stripe.PriceTaxBehaviorInclusive)),
+			},
+		})
+	}
+
+	// Shipping: only include the user's selected option.
+	shipName := "Standard shipping"
+	minDays, maxDays := int64(3), int64(5)
+	switch body.Shipping {
+	case "express":
+		shipName = "Express shipping"
+		minDays, maxDays = 2, 2
+	case "next-day":
+		shipName = "Next day shipping"
+		minDays, maxDays = 1, 1
+	}
+	params.ShippingOptions = []*stripe.CheckoutSessionShippingOptionParams{
+		{
+			ShippingRateData: &stripe.CheckoutSessionShippingOptionShippingRateDataParams{
+				DisplayName: stripe.String(shipName),
+				Type:        stripe.String(string(stripe.ShippingRateTypeFixedAmount)),
+				FixedAmount: &stripe.CheckoutSessionShippingOptionShippingRateDataFixedAmountParams{
+					Amount:   stripe.Int64(int64(shippingCents)),
+					Currency: stripe.String("gbp"),
+				},
+				TaxBehavior: stripe.String(string(stripe.ShippingRateTaxBehaviorInclusive)),
+				DeliveryEstimate: &stripe.CheckoutSessionShippingOptionShippingRateDataDeliveryEstimateParams{
+					Minimum: &stripe.CheckoutSessionShippingOptionShippingRateDataDeliveryEstimateMinimumParams{Unit: stripe.String("business_day"), Value: stripe.Int64(minDays)},
+					Maximum: &stripe.CheckoutSessionShippingOptionShippingRateDataDeliveryEstimateMaximumParams{Unit: stripe.String("business_day"), Value: stripe.Int64(maxDays)},
+				},
+			},
+		},
+	}
+
+	sess, err := checkoutsession.New(params)
+	if err != nil || sess == nil || sess.URL == "" {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "stripe_error"})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"checkout_url": checkoutURL})
+	writeJSON(w, http.StatusOK, map[string]any{"checkout_url": sess.URL})
 }
 
 func (s *Server) handleAccountOrders(w http.ResponseWriter, r *http.Request) {
@@ -441,67 +498,3 @@ func addQuery(rawURL, key, value string) string {
 	u.RawQuery = q.Encode()
 	return u.String()
 }
-
-type polarCheckoutCreate struct {
-	CartProductID      string
-	AmountCents        int
-	Currency           string
-	SuccessURL         string
-	CancelURL          string
-	ExternalCustomerID string
-	CustomerEmail      string
-	Metadata           map[string]any
-}
-
-func (s *Server) createPolarCheckout(ctx context.Context, in polarCheckoutCreate) (string, error) {
-	endpoint := os.Getenv("POLAR_API_BASE_URL")
-	if endpoint == "" {
-		endpoint = "https://api.polar.sh"
-	}
-	u, _ := url.Parse(endpoint)
-	u.Path = "/v1/checkouts/"
-
-	payload := map[string]any{
-		"products": []string{in.CartProductID},
-		"amount":   in.AmountCents,
-		"currency": in.Currency,
-		"success_url": in.SuccessURL,
-		"cancel_url":  in.CancelURL,
-		"metadata":    in.Metadata,
-	}
-	if strings.TrimSpace(in.ExternalCustomerID) != "" {
-		payload["external_customer_id"] = in.ExternalCustomerID
-	}
-	if strings.TrimSpace(in.CustomerEmail) != "" {
-		payload["customer_email"] = in.CustomerEmail
-	}
-
-	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), strings.NewReader(string(body)))
-	req.Header.Set("Authorization", "Bearer "+s.cfg.PolarAccessToken)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		b, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("polar status %d: %s", resp.StatusCode, string(b))
-	}
-
-	var out struct {
-		URL string `json:"url"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return "", err
-	}
-	if out.URL == "" {
-		return "", errors.New("missing url in polar response")
-	}
-	return out.URL, nil
-}
-

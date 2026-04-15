@@ -38,7 +38,7 @@ Local services:
 Copy `.env.example` to `.env` at the repo root and fill values as needed:
 
 - **Auth**: `BETTER_AUTH_SECRET`, `AUTH_BASE_URL`
-- **Polar**: `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_CART_PRODUCT_ID`
+- **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`
 - **Email**: for local dev, SMTP uses Mailpit; for prod, set `BREVO_API_KEY` and sender fields.
 
 ### 4) Auth service (Better Auth)
@@ -75,13 +75,13 @@ npm run dev
 
 Storefront runs on `http://localhost:4321`.
 
-## Polar setup notes (Checkout Session)
+## Stripe setup notes (Checkout Session)
 
-Polar checkout sessions are created with a **single “cart” product** and a **custom amount** (subtotal + shipping) sent as `amount`.
+Stripe Checkout Sessions are created from the server using DB-priced line items (to prevent client-side price tampering).
 
-- Create a Polar product intended for cart checkouts (custom price).
-- Set `POLAR_CART_PRODUCT_ID` to that product UUID.
-- Set `POLAR_SUCCESS_URL` to `http://localhost:4321/checkout/success` (the API will append `checkout_session_id`).
+- Set `STRIPE_SUCCESS_URL` to `http://localhost:4321/checkout/success` (the API appends `checkout_session_id` for display).
+- Set `STRIPE_CANCEL_URL` to `http://localhost:4321/checkout`.
+- Prices are treated as **VAT-inclusive**, and Stripe Checkout uses **automatic tax**.
 
 ### Shipping options
 
@@ -92,14 +92,12 @@ The storefront offers:
 
 ## Webhooks
 
-Point your Polar webhook endpoint to:
+Point your Stripe webhook endpoint to:
 
-- `POST http://<public-url>/webhooks/polar`
+- `POST http://<public-url>/webhooks/stripe`
 
-The handler verifies Standard Webhooks headers:
-- `webhook-id`
-- `webhook-timestamp`
-- `webhook-signature`
+Configure the webhook to send at least:
+- `checkout.session.completed`
 
-`POLAR_WEBHOOK_SECRET` must be the **base64** secret provided by Polar.
+Set `STRIPE_WEBHOOK_SECRET` to the signing secret from the Stripe Dashboard.
 
