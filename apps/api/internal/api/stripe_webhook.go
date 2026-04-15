@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stripe/stripe-go/v78"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
@@ -170,8 +171,14 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		paymentIntentID = cs.PaymentIntent.ID
 	}
 
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	var orderDBID int64
-	if err := s.db.QueryRow(ctx,
+	err = tx.QueryRow(ctx,
 		`INSERT INTO orders (
 			 stripe_payment_intent_id, stripe_checkout_session_id,
 			 user_id, email, status, currency,
@@ -179,8 +186,7 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 			 shipping_method, shipping_address
 		 )
 		 VALUES ($1,$2,$3,$4,'paid',$5,$6,$7,$8,$9,$10,$11)
-		 ON CONFLICT (stripe_payment_intent_id) DO UPDATE
-		   SET status='paid', total_cents=EXCLUDED.total_cents, tax_cents=EXCLUDED.tax_cents
+		 ON CONFLICT (stripe_checkout_session_id) DO NOTHING
 		 RETURNING id`,
 		nullIfEmpty(paymentIntentID),
 		cs.ID,
@@ -193,12 +199,21 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		totalCents,
 		nullIfEmpty(shippingMethod),
 		mustJSON(shippingAddress),
-	).Scan(&orderDBID); err != nil {
-		return err
+	).Scan(&orderDBID)
+
+	isNew := true
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			isNew = false
+			if err := tx.QueryRow(ctx, `SELECT id FROM orders WHERE stripe_checkout_session_id=$1`, cs.ID).Scan(&orderDBID); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
 
-	// Insert order items based on stored cart snapshot.
-	if len(local.Cart) > 0 {
+	if isNew && len(local.Cart) > 0 {
 		var items []struct {
 			Handle         string `json:"handle"`
 			Name           string `json:"name"`
@@ -207,7 +222,7 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		}
 		if err := json.Unmarshal(local.Cart, &items); err == nil {
 			for _, it := range items {
-				_, _ = s.db.Exec(ctx,
+				_, _ = tx.Exec(ctx,
 					`INSERT INTO order_items (order_id, product_name_snapshot, unit_price_cents, quantity)
 					 VALUES ($1,$2,$3,$4)`,
 					orderDBID, it.Name, it.UnitPriceCents, it.Quantity,
@@ -216,6 +231,12 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		}
 	}
 
-	_ = s.sendOrderConfirmationEmail(email, cs.ID)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	if isNew {
+		_ = s.sendOrderConfirmationEmail(email, cs.ID)
+	}
 	return nil
 }

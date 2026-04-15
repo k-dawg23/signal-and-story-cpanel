@@ -33,8 +33,8 @@ const { title = "Signal & Story", description = "Gear for Every Universe" } = As
         <a class="tag" href="/collections">Collections</a>
         <a class="tag" href="/search">Search</a>
         <a class="tag" href="/account">Account</a>
-        <button class="btn secondary" type="button" x-data @click="window.cart?.openDrawer()">
-          Cart <span class="tag" x-text="window.cart?.count() ?? 0"></span>
+        <button class="btn secondary" type="button" onclick="window.cart?.openDrawer()">
+          Cart <span id="cart-badge" class="tag">0</span>
         </button>
       </nav>
     </header>

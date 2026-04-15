@@ -45,8 +45,17 @@ import Base from "../layouts/Base.astro";
         body: JSON.stringify({ email }),
       });
       const s = document.getElementById("login-status");
-      if (res.ok) s.textContent = "Magic link sent. Check your inbox (Mailpit in dev).";
-      else s.textContent = "Could not send link.";
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        s.textContent = "Magic link sent. Check your inbox (Mailpit in dev).";
+      } else {
+        const msg =
+          data?.message ||
+          data?.error ||
+          (typeof data?.code === "string" ? data.code : null) ||
+          (res.status === 0 ? "Network error (check CORS / auth URL)" : `Could not send link (${res.status}).`);
+        s.textContent = msg;
+      }
       return false;
     }
 

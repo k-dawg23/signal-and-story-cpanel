@@ -5,11 +5,24 @@ import { auth, authHandler } from "./auth.js";
 
 const app = express();
 
-const allowedOrigin = process.env.APP_BASE_URL ?? "http://localhost:4321";
+const base = process.env.APP_BASE_URL ?? "http://localhost:4321";
+const allowlist = new Set<string>(
+  [base, "http://localhost:4321", "http://127.0.0.1:4321"]
+    .concat(
+      (process.env.APP_ORIGIN_ALLOWLIST ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    )
+    .filter(Boolean)
+);
 
 app.use(
   cors({
-    origin: allowedOrigin,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      callback(null, allowlist.has(origin));
+    },
     credentials: true,
   })
 );

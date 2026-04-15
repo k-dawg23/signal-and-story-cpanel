@@ -9,14 +9,20 @@
     }
   };
 
-  const write = (items) => {
-    localStorage.setItem(LS_KEY, JSON.stringify(items));
-    renderDrawer();
-  };
-
   const money = (cents) => `£${(cents / 100).toFixed(2)}`;
 
   const count = () => read().reduce((acc, it) => acc + (it.quantity || 0), 0);
+
+  const refreshBadge = () => {
+    const el = document.getElementById("cart-badge");
+    if (el) el.textContent = String(count());
+  };
+
+  const write = (items) => {
+    localStorage.setItem(LS_KEY, JSON.stringify(items));
+    renderDrawer();
+    refreshBadge();
+  };
 
   const add = (product) => {
     const items = read();
@@ -107,6 +113,8 @@
   };
 
   window.cart = { read, write, add, inc, dec, remove, subtotal, count, openDrawer, closeDrawer };
+
+  document.addEventListener("DOMContentLoaded", refreshBadge);
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeDrawer();
