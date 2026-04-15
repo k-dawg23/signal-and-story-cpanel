@@ -22,16 +22,22 @@ export const auth = betterAuth({
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {
-        await sendEmail({
-          to: email,
-          subject: "Your Signal & Story magic link",
-          html: `<div style="font-family: ui-sans-serif, system-ui; line-height: 1.5">
+        try {
+          await sendEmail({
+            to: email,
+            subject: "Your Signal & Story magic link",
+            html: `<div style="font-family: ui-sans-serif, system-ui; line-height: 1.5">
   <h2>Sign in to Signal &amp; Story</h2>
   <p>Click to sign in:</p>
   <p><a href="${url}">${url}</a></p>
   <p style="color:#666">If you didn’t request this, you can ignore this email.</p>
 </div>`,
-        });
+          });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[auth] magic link email failed:", err);
+          throw err;
+        }
       },
       expiresIn: 60 * 10
     }),
