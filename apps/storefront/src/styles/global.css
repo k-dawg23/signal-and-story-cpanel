@@ -18,28 +18,8 @@ html,body{height:100%}
 body{
   margin:0;
   color:var(--text);
-  background:
-    radial-gradient(1200px 700px at 80% -10%, rgba(168,85,247,.25) 0%, rgba(168,85,247,.12) 28%, rgba(168,85,247,0) 65%),
-    radial-gradient(900px 650px at 10% 20%, rgba(34,211,238,.18) 0%, rgba(34,211,238,.10) 26%, rgba(34,211,238,0) 62%),
-    linear-gradient(180deg, var(--bg) 0%, #0a0712 48%, var(--bg2) 100%);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg2) 100%);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
-}
-
-/* Reliable gradient banding fix: static tiled noise (no SVG filters). */
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:0;
-  opacity:.035;
-  background-image:url("/images/ui/noise-tile.svg");
-  background-repeat:repeat;
-  background-size:96px 96px;
-}
-body > *{
-  position:relative;
-  z-index:1;
 }
 
 a{color:inherit; text-decoration:none}
