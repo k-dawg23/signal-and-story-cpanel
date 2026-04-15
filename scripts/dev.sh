@@ -13,6 +13,7 @@ need_cmd() {
 need_cmd docker
 need_cmd npm
 need_cmd curl
+need_cmd ss
 
 find_go() {
   if command -v go >/dev/null 2>&1; then
@@ -32,6 +33,27 @@ find_go() {
     return 0
   fi
   return 1
+}
+
+pids_listening_on_port() {
+  local port="$1"
+  # Example ss line:
+  # users:(("node",pid=12345,fd=19))
+  ss -lptn "sport = :${port}" 2>/dev/null \
+    | grep -o 'pid=[0-9][0-9]*' \
+    | cut -d= -f2 \
+    | sort -u
+}
+
+free_port() {
+  local port="$1"
+  local label="$2"
+  local pid
+  for pid in $(pids_listening_on_port "${port}"); do
+    echo "Port ${port} (${label}) is in use by PID ${pid}; stopping it so dev services can start..." >&2
+    kill "${pid}" >/dev/null 2>&1 || true
+  done
+  sleep 0.2
 }
 
 if [[ ! -f "${ROOT_DIR}/.env" ]]; then
@@ -70,6 +92,17 @@ export API_ADDR
 export PUBLIC_API_BASE
 export PUBLIC_AUTH_BASE
 
+API_LISTEN_PORT="${API_ADDR##*:}"
+if [[ "${API_LISTEN_PORT}" == "${API_ADDR}" ]]; then
+  API_LISTEN_PORT="8788"
+fi
+
+SAS_FREE_PORTS="${SAS_FREE_PORTS:-1}"
+if [[ "${SAS_FREE_PORTS}" == "1" ]]; then
+  free_port "${AUTH_PORT}" "auth"
+  free_port "${API_LISTEN_PORT}" "api"
+fi
+
 PIDS=()
 
 cleanup() {
@@ -82,17 +115,37 @@ cleanup() {
 }
 trap cleanup INT TERM EXIT
 
-echo "Starting auth service on http://localhost:${AUTH_PORT} ..."
-(cd "${ROOT_DIR}/apps/auth" && npm run dev) &
-PIDS+=("$!")
-
 echo "Ensuring Better Auth DB tables exist..."
 # Better Auth CLI prompts for confirmation; auto-confirm for dev convenience.
 (cd "${ROOT_DIR}/apps/auth" && printf 'y\n' | npx auth migrate --config ./src/auth.ts) >/dev/null 2>&1 || true
 
+echo "Starting auth service on http://localhost:${AUTH_PORT} ..."
+AUTH_LOG="${ROOT_DIR}/tmp/auth.log"
+mkdir -p "${ROOT_DIR}/tmp"
+(cd "${ROOT_DIR}/apps/auth" && npm run dev) >"${AUTH_LOG}" 2>&1 &
+PIDS+=("$!")
+
+echo "Waiting for Auth /healthz..."
+AUTH_OK=0
+for _ in {1..40}; do
+  if curl -fsS "http://127.0.0.1:${AUTH_PORT}/healthz" >/dev/null 2>&1; then
+    AUTH_OK=1
+    break
+  fi
+  sleep 0.25
+done
+if [[ "${AUTH_OK}" -ne 1 ]]; then
+  echo "Auth did not become healthy on port ${AUTH_PORT}." >&2
+  echo "Auth log: ${AUTH_LOG}" >&2
+  echo "---- auth.log (last 80 lines) ----" >&2
+  tail -n 80 "${AUTH_LOG}" >&2 || true
+  echo "--------------------------------" >&2
+  echo "Tip: another process may still be bound to :${AUTH_PORT}. Try: SAS_FREE_PORTS=1 ./scripts/dev.sh" >&2
+fi
+
 API_OK=0
 if GO_CMD="$(find_go)"; then
-  echo "Starting API on http://localhost:8788 ..."
+  echo "Starting API on http://localhost:${API_LISTEN_PORT} ..."
   API_LOG="${ROOT_DIR}/tmp/api.log"
   mkdir -p "${ROOT_DIR}/tmp"
   (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" mod download) >/dev/null 2>&1 || true
@@ -102,7 +155,7 @@ if GO_CMD="$(find_go)"; then
 
   echo "Waiting for API /healthz..."
   for _ in {1..40}; do
-    if curl -fsS "http://127.0.0.1:8788/healthz" >/dev/null 2>&1; then
+    if curl -fsS "http://127.0.0.1:${API_LISTEN_PORT}/healthz" >/dev/null 2>&1; then
       API_OK=1
       break
     fi
@@ -128,7 +181,7 @@ echo
 echo "Dev stack is running:"
 echo "- Storefront: http://localhost:4321"
 echo "- Auth:       http://localhost:${AUTH_PORT}"
-echo "- API:        http://localhost:8788 (requires Go)"
+echo "- API:        http://localhost:${API_LISTEN_PORT} (requires Go)"
 echo "- Mailpit UI: http://localhost:8026"
 echo
 echo "Press Ctrl+C to stop."
