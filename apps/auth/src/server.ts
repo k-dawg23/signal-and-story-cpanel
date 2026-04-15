@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./load-env.js";
 import express from "express";
 import cors from "cors";
 import { auth, authHandler } from "./auth.js";

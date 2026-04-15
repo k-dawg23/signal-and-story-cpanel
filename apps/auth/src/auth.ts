@@ -1,3 +1,4 @@
+import "./load-env.js";
 import { betterAuth } from "better-auth";
 import { toNodeHandler } from "better-auth/node";
 import { magicLink } from "better-auth/plugins";

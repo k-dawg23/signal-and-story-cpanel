@@ -47,7 +47,8 @@ import Base from "../layouts/Base.astro";
       const s = document.getElementById("login-status");
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        s.textContent = "Magic link sent. Check your inbox (Mailpit in dev).";
+        s.textContent =
+          "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
       } else {
         const msg =
           data?.message ||

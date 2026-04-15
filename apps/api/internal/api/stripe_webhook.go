@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"hash/fnv"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +16,16 @@ import (
 	"github.com/stripe/stripe-go/v78"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
+
+func advisoryLockKeyStripeCheckout(sessionID string) int64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(sessionID))
+	v := int64(h.Sum64() & 0x7FFFFFFFFFFFFFFF)
+	if v == 0 {
+		return 1
+	}
+	return v
+}
 
 func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(s.cfg.StripeWebhookSecret) == "" || strings.TrimSpace(s.cfg.StripeSecretKey) == "" {
@@ -50,14 +61,25 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Idempotency: record Stripe event ID (safe even if we don't handle the type).
+	// Idempotency: if we've already seen this Stripe event id, acknowledge without re-processing.
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
-	_, _ = s.db.Exec(ctx, `INSERT INTO processed_webhooks (webhook_id) VALUES ($1) ON CONFLICT DO NOTHING`, evt.ID)
+	ct, err := s.db.Exec(ctx, `INSERT INTO processed_webhooks (webhook_id) VALUES ($1) ON CONFLICT DO NOTHING`, evt.ID)
+	if err != nil {
+		log.Printf("processed_webhooks insert: %v", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "db_error"})
+		return
+	}
+	if ct.RowsAffected() == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "duplicate_event": true})
+		return
+	}
 
 	switch evt.Type {
 	case "checkout.session.completed":
-		_ = s.processStripeCheckoutSessionCompleted(ctx, evt.Data.Raw)
+		if err := s.processStripeCheckoutSessionCompleted(ctx, evt.Data.Raw); err != nil {
+			log.Printf("checkout.session.completed handler: %v", err)
+		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -177,6 +199,10 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 	}
 	defer tx.Rollback(ctx)
 
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1::bigint)`, advisoryLockKeyStripeCheckout(cs.ID)); err != nil {
+		return err
+	}
+
 	var orderDBID int64
 	err = tx.QueryRow(ctx,
 		`INSERT INTO orders (
@@ -235,16 +261,15 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		return err
 	}
 
-	// Guard against double-sends: only the first updater sends.
-	var send int
-	if err := s.db.QueryRow(ctx,
-		`UPDATE orders
-		 SET confirmation_email_sent_at = now()
-		 WHERE id=$1 AND confirmation_email_sent_at IS NULL
-		 RETURNING 1`,
-		orderDBID,
-	).Scan(&send); err == nil && send == 1 {
-		_ = s.sendOrderConfirmationEmail(email, cs.ID)
+	// Duplicate deliveries for the same Checkout Session should hit isNew=false above.
+	if !isNew {
+		return nil
 	}
+
+	if err := s.sendOrderConfirmationEmail(email, cs.ID); err != nil {
+		log.Printf("order confirmation email failed: %v", err)
+		return err
+	}
+	_, _ = s.db.Exec(ctx, `UPDATE orders SET confirmation_email_sent_at = now() WHERE id=$1 AND confirmation_email_sent_at IS NULL`, orderDBID)
 	return nil
 }
