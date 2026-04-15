@@ -235,7 +235,15 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		return err
 	}
 
-	if isNew {
+	// Guard against double-sends: only the first updater sends.
+	var send int
+	if err := s.db.QueryRow(ctx,
+		`UPDATE orders
+		 SET confirmation_email_sent_at = now()
+		 WHERE id=$1 AND confirmation_email_sent_at IS NULL
+		 RETURNING 1`,
+		orderDBID,
+	).Scan(&send); err == nil && send == 1 {
 		_ = s.sendOrderConfirmationEmail(email, cs.ID)
 	}
 	return nil

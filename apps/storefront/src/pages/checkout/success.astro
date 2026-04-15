@@ -21,5 +21,14 @@ const checkoutSessionID = Astro.url.searchParams.get("checkout_session_id");
       <a class="btn secondary" href="/account">View order history</a>
     </div>
   </section>
+
+  <script is:inline>
+    // Clear the cart after a successful return from Stripe.
+    try {
+      window.cart?.write?.([]);
+      localStorage.removeItem("sas_cart_v1");
+      window.cart?.write?.([]); // ensure badge redraw even if drawer not mounted yet
+    } catch {}
+  </script>
 </Base>
 
