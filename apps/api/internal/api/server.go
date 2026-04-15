@@ -219,7 +219,7 @@ func (s *Server) handleCreateCheckoutSession(w http.ResponseWriter, r *http.Requ
 			Enabled: stripe.Bool(true),
 		},
 		ShippingAddressCollection: &stripe.CheckoutSessionShippingAddressCollectionParams{
-			AllowedCountries: stripe.StringSlice([]string{"GB", "IE", "FR", "DE", "NL", "BE", "ES", "IT", "SE", "DK", "NO"}),
+			AllowedCountries: stripe.StringSlice([]string{"GB"}),
 		},
 		BillingAddressCollection: stripe.String(string(stripe.CheckoutSessionBillingAddressCollectionRequired)),
 		Metadata: map[string]string{
