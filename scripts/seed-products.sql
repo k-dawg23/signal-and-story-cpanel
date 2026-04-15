@@ -1,9 +1,8 @@
 -- Seed a starter catalog (premium, universe-inspired).
 -- Safe to re-run: products upsert on handle; mappings are rebuilt.
 
-WITH upsert_products AS (
-  INSERT INTO products (handle, name, description_md, price_cents, currency, featured_rank, active, image_url)
-  VALUES
+INSERT INTO products (handle, name, description_md, price_cents, currency, featured_rank, active, image_url)
+VALUES
     ('neon-wyrm-patch-cable', 'Neon Wyrm Patch Cable', 'A low-capacitance patch cable with **dragon-scale shielding** and a subtle neon glow. Built for silent signal paths in crowded neon alleys.\n\n- Length: 15cm\n- Connectors: low-profile right-angle\n- Universe: Cyberpunk bazaar', 1299, 'GBP', 10, true, '/images/products/neon-wyrm-patch-cable.png'),
     ('voidglass-instrument-cable-3m', 'Voidglass Instrument Cable (3m)', 'A stage cable forged from **voidglass polymer**—flexible, tough, and quieter than a cathedral at midnight.\n\n- Length: 3m\n- Shielding: braided + foil\n- Universe: Dark Fantasy', 2499, 'GBP', 12, true, '/images/products/voidglass-instrument-cable-3m.png'),
     ('starlance-instrument-cable-6m', 'Starlance Instrument Cable (6m)', 'Long runs without the loss. A **starlit conductor** optimized for clarity—made for arena decks and starship holds.\n\n- Length: 6m\n- Universe: Sci‑Fi', 3499, 'GBP', 13, true, '/images/products/starlance-instrument-cable-6m.png'),
@@ -29,25 +28,21 @@ WITH upsert_products AS (
 
     ('signal-story-hoodie', 'Signal & Story Hoodie', 'Heavyweight hoodie with a subtle glow print: **Where Sound Meets Story**.\n\n- Fit: relaxed\n- Universe: cross‑realm', 5999, 'GBP', 20, true, '/images/products/signal-story-hoodie.png'),
     ('runegrid-poster-set', 'Runegrid Poster Set', 'Two A2 prints—one neon grid, one rune parchment. For studios that feel like a **portal room**.\n\n- Size: A2\n- Pack: 2\n- Universe: mixed', 2499, 'GBP', 21, true, '/images/products/runegrid-poster-set.png')
-  ON CONFLICT (handle) DO UPDATE SET
-    name = EXCLUDED.name,
-    description_md = replace(EXCLUDED.description_md, '\\n', E'\n'),
-    price_cents = EXCLUDED.price_cents,
-    currency = EXCLUDED.currency,
-    featured_rank = EXCLUDED.featured_rank,
-    active = EXCLUDED.active,
-    image_url = EXCLUDED.image_url
-  RETURNING id, handle
-),
-collections_map AS (
-  SELECT id, type, slug FROM collections
-),
-delete_existing AS (
-  DELETE FROM product_collections
-)
+ON CONFLICT (handle) DO UPDATE SET
+  name = EXCLUDED.name,
+  description_md = replace(EXCLUDED.description_md, '\\n', E'\n'),
+  price_cents = EXCLUDED.price_cents,
+  currency = EXCLUDED.currency,
+  featured_rank = EXCLUDED.featured_rank,
+  active = EXCLUDED.active,
+  image_url = EXCLUDED.image_url;
+
+-- Rebuild collection mappings from the canonical products table.
+DELETE FROM product_collections;
+
 INSERT INTO product_collections (product_id, collection_id)
 SELECT p.id, c.id
-FROM upsert_products p
+FROM products p
 CROSS JOIN LATERAL (
   VALUES
     -- Cables
