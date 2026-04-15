@@ -31,31 +31,45 @@ import Base from "../layouts/Base.astro";
   </section>
 
   <script is:inline>
-    const authBase = (import.meta.env.PUBLIC_AUTH_BASE || "http://localhost:8787");
-    const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
+    function sasAuthBase() {
+      return window.__SAS__?.authBase || "http://localhost:8787";
+    }
+    function sasApiBase() {
+      return window.__SAS__?.apiBase || "http://127.0.0.1:8788";
+    }
 
     async function sendMagicLink(e){
       e.preventDefault();
-      const email = document.getElementById("email")?.value;
-      if (!email) return false;
-      const res = await fetch(`${authBase}/api/auth/sign-in/magic-link`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email }),
-      });
       const s = document.getElementById("login-status");
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) {
-        s.textContent =
-          "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
-      } else {
-        const msg =
-          data?.message ||
-          data?.error ||
-          (typeof data?.code === "string" ? data.code : null) ||
-          (res.status === 0 ? "Network error (check CORS / auth URL)" : `Could not send link (${res.status}).`);
-        s.textContent = msg;
+      const email = document.getElementById("email")?.value?.trim();
+      if (!email) {
+        if (s) s.textContent = "Enter your email.";
+        return false;
+      }
+      const authBase = sasAuthBase();
+      if (s) s.textContent = "Sending…";
+      try {
+        const res = await fetch(`${authBase}/api/auth/sign-in/magic-link`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          s.textContent =
+            "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
+        } else {
+          const msg =
+            data?.message ||
+            data?.error ||
+            (typeof data?.code === "string" ? data.code : null) ||
+            (res.status === 0 ? "Network error (check CORS / auth URL)" : `Could not send link (${res.status}).`);
+          s.textContent = msg;
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        s.textContent = `Request failed: ${msg}. Is auth running at ${authBase}?`;
       }
       return false;
     }
@@ -63,6 +77,7 @@ import Base from "../layouts/Base.astro";
     async function loadOrders(){
       const root = document.getElementById("orders");
       root.textContent = "Loading…";
+      const apiBase = sasApiBase();
       const res = await fetch(`${apiBase}/api/account/orders`, { credentials: "include" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok){
