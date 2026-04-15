@@ -86,6 +86,10 @@ echo "Starting auth service on http://localhost:${AUTH_PORT} ..."
 (cd "${ROOT_DIR}/apps/auth" && npm run dev) &
 PIDS+=("$!")
 
+echo "Ensuring Better Auth DB tables exist..."
+# Better Auth CLI prompts for confirmation; auto-confirm for dev convenience.
+(cd "${ROOT_DIR}/apps/auth" && printf 'y\n' | npx auth migrate --config ./src/auth.ts) >/dev/null 2>&1 || true
+
 API_OK=0
 if GO_CMD="$(find_go)"; then
   echo "Starting API on http://localhost:8788 ..."

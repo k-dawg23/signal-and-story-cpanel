@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -31,8 +33,18 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	evt, err := webhook.ConstructEvent(body, sig, strings.TrimSpace(s.cfg.StripeWebhookSecret))
+	evt, err := webhook.ConstructEventWithOptions(
+		body,
+		sig,
+		strings.TrimSpace(s.cfg.StripeWebhookSecret),
+		webhook.ConstructEventOptions{IgnoreAPIVersionMismatch: true},
+	)
 	if err != nil {
+		log.Printf("stripe webhook signature error: %v", err)
+		if strings.EqualFold(strings.TrimSpace(os.Getenv("APP_ENV")), "development") {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_signature", "detail": err.Error()})
+			return
+		}
 		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid_signature"})
 		return
 	}

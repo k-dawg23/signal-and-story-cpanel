@@ -55,7 +55,7 @@ Auth runs on `http://localhost:8787` and exposes:
 
 > Note: Better Auth DB tables are created via the Better Auth CLI. If you need to run migrations:
 >
-> `cd apps/auth && npx auth migrate --config ./auth.ts`
+> `cd apps/auth && npx auth migrate --config ./src/auth.ts`
 
 ### 5) API (Go)
 
