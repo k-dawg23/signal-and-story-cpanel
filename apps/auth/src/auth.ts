@@ -11,6 +11,37 @@ function mustGetEnv(name: string): string {
   return v;
 }
 
+function parseOriginList(raw: string | undefined): string[] {
+  return (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function isProductionEnv(): boolean {
+  return (
+    process.env.APP_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
+function defaultTrustedOrigins(): string[] {
+  const base = process.env.APP_BASE_URL ?? "http://localhost:4321";
+  return [
+    base,
+    "http://localhost:4321",
+    "http://127.0.0.1:4321",
+    ...parseOriginList(process.env.APP_ORIGIN_ALLOWLIST),
+  ];
+}
+
+function normalizeAuthBaseURL(raw: string): string {
+  // Our auth handler is mounted under `/api/auth/*` in `server.ts`.
+  // Better Auth's `baseURL` must include that prefix so generated links work.
+  const trimmed = raw.replace(/\/+$/, "");
+  return trimmed.endsWith("/api/auth") ? trimmed : `${trimmed}/api/auth`;
+}
+
 const pool = new Pool({
   connectionString: mustGetEnv("DATABASE_URL"),
 });
@@ -18,7 +49,16 @@ const pool = new Pool({
 export const auth = betterAuth({
   database: pool,
   secret: mustGetEnv("BETTER_AUTH_SECRET"),
-  baseURL: mustGetEnv("AUTH_BASE_URL"),
+  baseURL: normalizeAuthBaseURL(mustGetEnv("AUTH_BASE_URL")),
+  trustedOrigins: (request) => {
+    const origins = new Set(defaultTrustedOrigins());
+    // Outside production, trust the browser Origin (LAN Network URL, alternate port, etc.).
+    if (request && !isProductionEnv()) {
+      const origin = request.headers.get("origin");
+      if (origin) origins.add(origin);
+    }
+    return [...origins];
+  },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {

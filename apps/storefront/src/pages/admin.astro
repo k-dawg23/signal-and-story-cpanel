@@ -3,30 +3,104 @@ import Base from "../layouts/Base.astro";
 ---
 <Base title="Admin — Signal & Story">
   <h1 style="margin:0">Admin</h1>
-  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Restricted to <strong>kenneth.rough@gmail.com</strong>.</p>
+  <p style="color:var(--muted);margin-top:10px;line-height:1.6">Manage products, orders, and collections.</p>
 
   <div style="height:12px"></div>
 
   <section class="grid cols2" style="align-items:start">
-    <div class="card" style="padding:14px">
-      <h2 style="margin:0">Overview</h2>
+    <details class="card" style="padding:14px" open data-section>
+      <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <h2 style="margin:0">Overview</h2>
+        <span class="tag" data-openclose>Close</span>
+      </summary>
       <div style="height:10px"></div>
-      <div id="overview" class="tag">Loading…</div>
-    </div>
-    <div class="card" style="padding:14px">
-      <h2 style="margin:0">Recent orders</h2>
+      <div id="overview">Loading…</div>
+    </details>
+    <details class="card" style="padding:14px" open data-section>
+      <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <h2 style="margin:0">Recent orders</h2>
+        <span class="tag" data-openclose>Close</span>
+      </summary>
       <div style="height:10px"></div>
-      <div id="orders" class="tag">Loading…</div>
-    </div>
+      <div id="orders" class="grid" style="gap:10px">Loading…</div>
+    </details>
   </section>
 
   <div style="height:12px"></div>
 
-  <section class="card" style="padding:14px">
-    <h2 style="margin:0">Products</h2>
+  <details class="card" style="padding:14px" open data-section>
+    <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0">Products</h2>
+        <p style="color:var(--muted);margin:0;line-height:1.6">Add, edit, delete, and view all products (including inactive).</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn secondary" type="button" onclick="toggleNewProduct(true)">Add product</button>
+        <span class="tag" data-openclose>Close</span>
+      </div>
+    </summary>
     <div style="height:10px"></div>
-    <div id="products" class="tag">Loading…</div>
-  </section>
+    <div id="new-product" class="card" style="padding:12px;display:none">
+      <div style="font-weight:900">New product</div>
+      <div style="height:10px"></div>
+      <form class="grid" style="gap:10px" onsubmit="return createProduct(event)">
+        <div class="grid cols2" style="gap:10px">
+          <input id="np-handle" required placeholder="handle (e.g. cosmic-strings)" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+          <input id="np-name" required placeholder="name" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+        </div>
+        <textarea id="np-desc" rows="4" placeholder="description (markdown)" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)"></textarea>
+        <div class="grid cols2" style="gap:10px">
+          <input id="np-price" required type="number" min="0" step="1" placeholder="price (pence) e.g. 899" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+          <input id="np-image" placeholder="image URL (optional)" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn" type="submit">Create</button>
+          <button class="btn secondary" type="button" onclick="toggleNewProduct(false)">Cancel</button>
+          <div id="np-status" class="tag" style="display:none"></div>
+        </div>
+      </form>
+    </div>
+    <div style="height:10px"></div>
+    <div id="products" class="grid" style="gap:10px">Loading…</div>
+  </details>
+
+  <div style="height:12px"></div>
+
+  <details class="card" style="padding:14px" open data-section>
+    <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h2 style="margin:0">Collections</h2>
+        <p style="color:var(--muted);margin:0;line-height:1.6">Create/edit collections and assign products.</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn secondary" type="button" onclick="toggleNewCollection(true)">Add collection</button>
+        <span class="tag" data-openclose>Close</span>
+      </div>
+    </summary>
+    <div style="height:10px"></div>
+    <div id="new-collection" class="card" style="padding:12px;display:none">
+      <div style="font-weight:900">New collection</div>
+      <div style="height:10px"></div>
+      <form class="grid" style="gap:10px" onsubmit="return createCollection(event)">
+        <div class="grid cols3" style="gap:10px">
+          <select id="nc-type" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)">
+            <option value="category">category</option>
+            <option value="theme">theme</option>
+            <option value="instrument">instrument</option>
+          </select>
+          <input id="nc-slug" required placeholder="slug (e.g. synthwave)" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+          <input id="nc-name" required placeholder="name" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn" type="submit">Create</button>
+          <button class="btn secondary" type="button" onclick="toggleNewCollection(false)">Cancel</button>
+          <div id="nc-status" class="tag" style="display:none"></div>
+        </div>
+      </form>
+    </div>
+    <div style="height:10px"></div>
+    <div id="collections" class="grid" style="gap:10px">Loading…</div>
+  </details>
 
   <script is:inline>
     const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
@@ -34,46 +108,359 @@ import Base from "../layouts/Base.astro";
       const overviewEl = document.getElementById("overview");
       const ordersEl = document.getElementById("orders");
       const productsEl = document.getElementById("products");
+      const collectionsEl = document.getElementById("collections");
 
-      const [ov, ord, pro] = await Promise.all([
+      const [meta, ov, ord, pro, col] = await Promise.all([
+        fetch(`${apiBase}/api/_meta/build`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
         fetch(`${apiBase}/api/admin/overview`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
         fetch(`${apiBase}/api/admin/orders`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
         fetch(`${apiBase}/api/admin/products`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
+        fetch(`${apiBase}/api/admin/collections`, { credentials: "include" }).then(r => r.json().then(j => [r.ok, j])),
       ]);
 
-      if (!ov[0] || !ord[0] || !pro[0]){
+      if (!ov[0] || !ord[0] || !pro[0] || !col[0]){
         overviewEl.textContent = "Forbidden. Ensure you are signed in as the admin email.";
         ordersEl.textContent = "—";
         productsEl.textContent = "—";
+        collectionsEl.textContent = "—";
         return;
       }
 
-      overviewEl.innerHTML = `<div class="grid cols2">
+      const emailBackend = meta[0] ? (meta[1].email_backend || "unknown") : "unknown";
+      overviewEl.innerHTML = `<div class="grid cols3">
         <div class="card" style="padding:12px"><div style="color:var(--muted);font-size:12px">Revenue</div><div style="font-weight:900;font-size:22px;margin-top:6px">£${(ov[1].revenue_cents/100).toFixed(2)}</div></div>
         <div class="card" style="padding:12px"><div style="color:var(--muted);font-size:12px">Orders</div><div style="font-weight:900;font-size:22px;margin-top:6px">${ov[1].orders_count}</div></div>
+        <div class="card" style="padding:12px"><div style="color:var(--muted);font-size:12px">Email backend</div><div style="font-weight:900;font-size:22px;margin-top:6px">${escapeHTML(String(emailBackend).toUpperCase())}</div></div>
       </div>`;
 
       const orders = ord[1].orders || [];
-      ordersEl.innerHTML = orders.length ? `<div class="grid" style="gap:10px">
-        ${orders.slice(0,10).map(o => `
-          <div class="card" style="padding:12px;display:flex;justify-content:space-between;gap:10px">
-            <div><div style="font-weight:800">#${o.id}</div><div style="color:var(--muted);font-size:12px;margin-top:4px">${o.email}</div></div>
+      ordersEl.innerHTML = orders.length ? orders.map(o => `
+        <details class="card" style="padding:12px" data-order-id="${o.id}">
+          <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-weight:900">Order #${o.id}</div>
+              <div style="color:var(--muted);font-size:12px">${escapeHTML(o.email || "")} • ${escapeHTML(o.status || "")}</div>
+            </div>
             <div class="tag">£${(o.total_cents/100).toFixed(2)}</div>
-          </div>`).join("")}
-      </div>` : "No orders yet.";
+          </summary>
+          <div class="tag" style="margin-top:10px" id="order-detail-${o.id}">Loading…</div>
+        </details>
+      `).join("") : "No orders yet.";
+      wireOrderDetails();
 
       const products = pro[1].products || [];
-      productsEl.innerHTML = `<div class="grid cols2">
-        ${products.slice(0,12).map(p => `
-          <div class="card" style="padding:12px">
-            <div style="font-weight:800">${p.name}</div>
-            <div style="color:var(--muted);font-size:12px;margin-top:4px">${p.handle}</div>
-            <div class="tag" style="margin-top:8px">£${(p.price_cents/100).toFixed(2)}</div>
+      productsEl.innerHTML = products.length ? products.map(p => `
+        <details class="card" style="padding:12px">
+          <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+            <div style="display:flex;flex-direction:column;gap:4px">
+              <div style="font-weight:900">${escapeHTML(p.name || "")}</div>
+              <div style="color:var(--muted);font-size:12px">${escapeHTML(p.handle || "")}</div>
+            </div>
+            <div class="tag">£${(p.price_cents/100).toFixed(2)}</div>
+          </summary>
+          <div style="margin-top:10px" class="grid" style="gap:10px">
+            <div class="grid cols2" style="gap:10px">
+              <input data-field="handle" value="${escapeAttr(p.handle || "")}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+              <input data-field="name" value="${escapeAttr(p.name || "")}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+            </div>
+            <textarea data-field="description_md" rows="4" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)">${escapeHTML(p.description_md || "")}</textarea>
+            <div class="grid cols2" style="gap:10px">
+              <input data-field="price_cents" type="number" min="0" step="1" value="${Number(p.price_cents||0)}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+              <input data-field="image_url" value="${escapeAttr(p.image_url || "")}" placeholder="image URL" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button class="btn" type="button" onclick="saveProduct(${p.id}, this)">Save</button>
+              <button class="btn secondary" type="button" onclick="deleteProduct(${p.id})">Delete</button>
+              <div class="tag" data-status-for="${p.id}" style="display:none"></div>
+            </div>
           </div>
-        `).join("")}
-      </div>`;
+        </details>
+      `).join("") : "No products.";
+
+      // Collections + assignments
+      const collections = col[1].collections || [];
+      const idsByCollection = col[1].product_ids_by_collection_id || {};
+      const productOptions = products.map(p => ({
+        id: Number(p.id),
+        name: String(p.name || ""),
+      }));
+
+      collectionsEl.innerHTML = collections.length ? collections.map(c => {
+        const assigned = new Set((idsByCollection[c.id] || []).map(Number));
+        const checkboxes = productOptions.map(p => `
+          <label style="display:flex;gap:10px;align-items:center">
+            <input type="checkbox" data-collection-product="${c.id}" value="${p.id}" ${assigned.has(p.id) ? "checked" : ""} />
+            <span style="font-size:12px;color:var(--muted)">${escapeHTML(p.name)}</span>
+          </label>
+        `).join("");
+
+        return `
+          <details class="card" style="padding:12px">
+            <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="font-weight:900">${escapeHTML(c.name || "")}</div>
+                <div style="color:var(--muted);font-size:12px">${escapeHTML(c.type || "")} • ${escapeHTML(c.slug || "")}</div>
+              </div>
+              <div class="tag">${(idsByCollection[c.id] || []).length} products</div>
+            </summary>
+            <div style="margin-top:10px" class="grid" style="gap:10px">
+              <div class="grid cols3" style="gap:10px">
+                <input data-collection-field="type" value="${escapeAttr(c.type || "")}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+                <input data-collection-field="slug" value="${escapeAttr(c.slug || "")}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+                <input data-collection-field="name" value="${escapeAttr(c.name || "")}" style="padding:12px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--text)" />
+              </div>
+              <div class="card" style="padding:12px">
+                <div style="font-weight:900">Products in this collection</div>
+                <div style="height:8px"></div>
+                <div class="grid" style="gap:6px;max-height:240px;overflow:auto">
+                  ${checkboxes || `<div class="tag">No products yet.</div>`}
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+                <button class="btn" type="button" onclick="saveCollection(${c.id}, this)">Save</button>
+                <button class="btn secondary" type="button" onclick="deleteCollection(${c.id})">Delete</button>
+                <div class="tag" data-collection-status-for="${c.id}" style="display:none"></div>
+              </div>
+            </div>
+          </details>
+        `;
+      }).join("") : "No collections yet.";
     }
-    loadAdmin();
+
+    function escapeHTML(s){
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[c]));
+    }
+    function escapeAttr(s){
+      return escapeHTML(s).replace(/`/g, "&#96;");
+    }
+
+    function wireSectionOpenCloseLabels(){
+      document.querySelectorAll("details[data-section]").forEach((d) => {
+        if (d.dataset.wiredSection === "1") return;
+        d.dataset.wiredSection = "1";
+        const label = d.querySelector("[data-openclose]");
+        const set = () => { if (label) label.textContent = d.open ? "Close" : "Open"; };
+        set();
+        d.addEventListener("toggle", set);
+      });
+    }
+
+    function toggleNewProduct(show){
+      const el = document.getElementById("new-product");
+      if (el) el.style.display = show ? "block" : "none";
+    }
+    window.toggleNewProduct = toggleNewProduct;
+
+    async function createProduct(e){
+      e.preventDefault();
+      const s = document.getElementById("np-status");
+      const body = {
+        handle: document.getElementById("np-handle").value.trim(),
+        name: document.getElementById("np-name").value.trim(),
+        description_md: document.getElementById("np-desc").value.trim(),
+        price_cents: Number(document.getElementById("np-price").value),
+        image_url: document.getElementById("np-image").value.trim(),
+      };
+      if (s){ s.style.display = "inline-flex"; s.textContent = "Creating…"; }
+      const res = await fetch(`${apiBase}/api/admin/products`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok){
+        if (s) s.textContent = "Created.";
+        toggleNewProduct(false);
+        await loadAdmin();
+      } else {
+        if (s) s.textContent = "Failed.";
+      }
+      return false;
+    }
+    window.createProduct = createProduct;
+
+    async function saveProduct(id, btn){
+      const wrap = btn.closest("details");
+      const fields = {};
+      wrap.querySelectorAll("[data-field]").forEach(inp => {
+        const k = inp.getAttribute("data-field");
+        if (inp.tagName === "TEXTAREA") fields[k] = inp.value;
+        else if (inp.type === "number") fields[k] = Number(inp.value);
+        else fields[k] = inp.value;
+      });
+      const st = document.querySelector(`[data-status-for="${id}"]`);
+      if (st){ st.style.display="inline-flex"; st.textContent="Saving…"; }
+      const res = await fetch(`${apiBase}/api/admin/products/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (st) st.textContent = res.ok ? "Saved." : "Failed.";
+    }
+    window.saveProduct = saveProduct;
+
+    async function deleteProduct(id){
+      if (!confirm("Delete this product?")) return;
+      await fetch(`${apiBase}/api/admin/products/${id}`, { method: "DELETE", credentials: "include" });
+      await loadAdmin();
+    }
+    window.deleteProduct = deleteProduct;
+
+    function toggleNewCollection(show){
+      const el = document.getElementById("new-collection");
+      if (el) el.style.display = show ? "block" : "none";
+    }
+    window.toggleNewCollection = toggleNewCollection;
+
+    async function createCollection(e){
+      e.preventDefault();
+      const s = document.getElementById("nc-status");
+      const body = {
+        type: document.getElementById("nc-type").value,
+        slug: document.getElementById("nc-slug").value.trim(),
+        name: document.getElementById("nc-name").value.trim(),
+      };
+      if (s){ s.style.display="inline-flex"; s.textContent="Creating…"; }
+      const res = await fetch(`${apiBase}/api/admin/collections`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify(body),
+      });
+      if (s) s.textContent = res.ok ? "Created." : "Failed.";
+      if (res.ok){
+        toggleNewCollection(false);
+        await loadAdmin();
+      }
+      return false;
+    }
+    window.createCollection = createCollection;
+
+    async function saveCollection(id, btn){
+      const wrap = btn.closest("details");
+      const fields = {};
+      wrap.querySelectorAll("[data-collection-field]").forEach(inp => {
+        const k = inp.getAttribute("data-collection-field");
+        fields[k] = inp.value;
+      });
+      const productIds = Array.from(document.querySelectorAll(`input[data-collection-product="${id}"]:checked`))
+        .map(el => Number(el.value))
+        .filter(Boolean);
+
+      const st = document.querySelector(`[data-collection-status-for="${id}"]`);
+      if (st){ st.style.display="inline-flex"; st.textContent="Saving…"; }
+
+      const res1 = await fetch(`${apiBase}/api/admin/collections/${id}`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify(fields),
+      });
+      const res2 = await fetch(`${apiBase}/api/admin/collections/${id}/products`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+        body: JSON.stringify({ product_ids: productIds }),
+      });
+      if (st) st.textContent = (res1.ok && res2.ok) ? "Saved." : "Failed.";
+      if (res1.ok && res2.ok) await loadAdmin();
+    }
+    window.saveCollection = saveCollection;
+
+    async function deleteCollection(id){
+      if (!confirm("Delete this collection?")) return;
+      await fetch(`${apiBase}/api/admin/collections/${id}`, { method: "DELETE", credentials: "include" });
+      await loadAdmin();
+    }
+    window.deleteCollection = deleteCollection;
+
+    async function loadOrderDetail(orderId){
+      const el = document.getElementById(`order-detail-${orderId}`);
+      if (!el) return;
+      const res = await fetch(`${apiBase}/api/admin/orders/${orderId}`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok){ el.textContent = "Failed to load order."; return; }
+      const o = data.order;
+      const addr = o.shipping_address || {};
+      const addrLine = [addr.line1, addr.line2, addr.city, addr.state, addr.postal_code, addr.country].filter(Boolean).join(", ");
+      const addrName = addr.name ? String(addr.name) : "";
+      const items = (o.items || []).map(it => `<div style="display:flex;justify-content:space-between;gap:10px">
+        <div style="font-size:12px;color:var(--muted)">${it.quantity} × ${escapeHTML(it.name||"")}</div>
+        <div class="tag">£${(((it.unit_price_cents||0)*(it.quantity||0))/100).toFixed(2)}</div>
+      </div>`).join("");
+      el.className = "";
+      el.innerHTML = `
+        <div class="grid" style="gap:10px;margin-top:10px">
+          <div class="card" style="padding:12px">
+            <div style="font-weight:900">Shipping</div>
+            <div style="height:6px"></div>
+            <div class="tag">${escapeHTML(o.shipping_method || "—")}</div>
+            <div style="height:8px"></div>
+            <div style="color:var(--muted);font-size:12px;line-height:1.6">
+              ${addrName ? `<div style="color:var(--text);font-weight:800">${escapeHTML(addrName)}</div>` : ``}
+              <div>${escapeHTML(addrLine || "No address captured.")}</div>
+            </div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="font-weight:900">Items</div>
+            <div style="height:8px"></div>
+            <div class="grid" style="gap:6px">${items || "<div class=\"tag\">No items.</div>"}</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="display:flex;justify-content:space-between;gap:10px"><div class="tag">Subtotal</div><div class="tag">£${(o.subtotal_cents/100).toFixed(2)}</div></div>
+            <div style="height:6px"></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><div class="tag">Shipping</div><div class="tag">£${(o.shipping_cents/100).toFixed(2)}</div></div>
+            <div style="height:6px"></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><div class="tag">Tax</div><div class="tag">£${(o.tax_cents/100).toFixed(2)}</div></div>
+            <div style="height:10px"></div>
+            <div style="display:flex;justify-content:space-between;gap:10px"><div style="font-weight:900">Total</div><div style="font-weight:900">£${(o.total_cents/100).toFixed(2)}</div></div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="font-weight:900">Actions</div>
+            <div style="height:10px"></div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button class="btn secondary" type="button" onclick="resendConfirmationEmail(${orderId}, this)">Resend confirmation email</button>
+              <div class="tag" id="resend-status-${orderId}" style="display:none"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function resendConfirmationEmail(orderId, btn){
+      const st = document.getElementById(`resend-status-${orderId}`);
+      if (st){ st.style.display="inline-flex"; st.textContent="Sending…"; }
+      if (btn) btn.setAttribute("aria-disabled", "true");
+      const res = await fetch(`${apiBase}/api/admin/orders/${orderId}/resend-confirmation`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type":"application/json" },
+      });
+      if (btn) btn.removeAttribute("aria-disabled");
+      if (st) st.textContent = res.ok ? "Sent." : "Failed.";
+    }
+    window.resendConfirmationEmail = resendConfirmationEmail;
+
+    function wireOrderDetails(){
+      document.querySelectorAll('details[data-order-id]').forEach((d) => {
+        if (d.dataset.wired === "1") return;
+        d.dataset.wired = "1";
+        d.addEventListener("toggle", () => {
+          if (!d.open) return;
+          if (d.dataset.loaded === "1") return;
+          const id = Number(d.getAttribute("data-order-id"));
+          if (!id) return;
+          d.dataset.loaded = "1";
+          loadOrderDetail(id).catch(() => {});
+        });
+      });
+    }
+
+    wireSectionOpenCloseLabels();
+    loadAdmin().then(() => wireSectionOpenCloseLabels()).catch(() => {});
   </script>
 </Base>
 

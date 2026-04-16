@@ -3,8 +3,12 @@ import "../styles/global.css";
 
 const { title = "Signal & Story", description = "Gear for Every Universe" } = Astro.props;
 
-const apiBase = import.meta.env.PUBLIC_API_BASE ?? "http://127.0.0.1:8788";
+// Use `localhost` by default so Better Auth cookies (host-only) are sent to the API.
+// `127.0.0.1` is a different host and will not receive `localhost` cookies.
+const apiBase = import.meta.env.PUBLIC_API_BASE ?? "http://localhost:8788";
 const authBase = import.meta.env.PUBLIC_AUTH_BASE ?? "http://localhost:8787";
+const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL ?? import.meta.env.ADMIN_EMAIL ?? "";
+const brevoEnabled = Boolean(import.meta.env.BREVO_API_KEY);
 ---
 <!doctype html>
 <html lang="en">
@@ -13,8 +17,8 @@ const authBase = import.meta.env.PUBLIC_AUTH_BASE ?? "http://localhost:8787";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <script is:inline define:vars={{ apiBase, authBase }}>
-      window.__SAS__ = { apiBase, authBase };
+    <script is:inline define:vars={{ apiBase, authBase, adminEmail, brevoEnabled }}>
+      window.__SAS__ = { apiBase, authBase, adminEmail, brevoEnabled };
     </script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>

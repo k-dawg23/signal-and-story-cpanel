@@ -45,9 +45,9 @@ import Base from "../layouts/Base.astro";
       </div>
 
       <div style="height:12px"></div>
-      <button class="btn" type="button" onclick="beginCheckout()" style="width:100%">Continue to secure checkout</button>
+      <button id="checkout-btn" class="btn" type="button" onclick="beginCheckout()" style="width:100%">Continue to secure checkout</button>
       <div style="height:10px"></div>
-      <div class="tag">Taxes are calculated automatically at checkout.</div>
+      <div id="checkout-status" class="tag">Taxes are calculated automatically at checkout.</div>
     </section>
   </div>
 
@@ -97,23 +97,53 @@ import Base from "../layouts/Base.astro";
     renderSummary();
 
     async function beginCheckout(){
-      if (!window.cart) return;
-      const items = window.cart.read().map(it => ({ handle: it.handle, quantity: it.quantity }));
-      const shipping = document.querySelector("input[name=shipping]:checked")?.value || "standard";
-      const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
-      const res = await fetch(`${apiBase}/api/checkout/session`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ items, shipping }),
-      });
-      const data = await res.json();
-      if (!res.ok){
-        alert(data?.error || "Checkout failed");
-        return;
+      const btn = document.getElementById("checkout-btn");
+      const status = document.getElementById("checkout-status");
+      try {
+        if (!window.cart) {
+          if (status) status.textContent = "Cart not loaded. Refresh the page.";
+          return;
+        }
+        const items = window.cart.read().map(it => ({ handle: it.handle, quantity: it.quantity }));
+        if (!items.length) {
+          if (status) status.textContent = "Your cart is empty.";
+          return;
+        }
+        const shipping = document.querySelector("input[name=shipping]:checked")?.value || "standard";
+        const apiBase = window.__SAS__?.apiBase || "http://localhost:8788";
+        if (btn) btn.setAttribute("aria-disabled", "true");
+        if (btn) btn.textContent = "Redirecting…";
+        if (status) status.textContent = "Creating Stripe checkout session…";
+        const res = await fetch(`${apiBase}/api/checkout/session`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ items, shipping }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok){
+          if (status) status.textContent = data?.error || `Checkout failed (${res.status})`;
+          if (btn) btn.removeAttribute("aria-disabled");
+          if (btn) btn.textContent = "Continue to secure checkout";
+          return;
+        }
+        if (!data?.checkout_url) {
+          if (status) status.textContent = "Checkout failed (missing checkout URL).";
+          if (btn) btn.removeAttribute("aria-disabled");
+          if (btn) btn.textContent = "Continue to secure checkout";
+          return;
+        }
+        window.location.href = data.checkout_url;
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        const status = document.getElementById("checkout-status");
+        if (status) status.textContent = `Checkout error: ${msg}`;
+        const btn = document.getElementById("checkout-btn");
+        if (btn) btn.removeAttribute("aria-disabled");
+        if (btn) btn.textContent = "Continue to secure checkout";
       }
-      window.location.href = data.checkout_url;
     }
+    window.beginCheckout = beginCheckout;
   </script>
 </Base>
 

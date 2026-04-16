@@ -20,8 +20,13 @@ for f in "${ROOT_DIR}/apps/api/migrations/"*.sql; do
   docker exec -i "${DB_CID}" psql -U signal -d signal_and_story < "$f"
 done
 
-echo "Seeding products..."
-docker exec -i "${DB_CID}" psql -U signal -d signal_and_story < "${ROOT_DIR}/scripts/seed-products.sql"
+SAS_SEED_PRODUCTS="${SAS_SEED_PRODUCTS:-0}"
+if [[ "${SAS_SEED_PRODUCTS}" == "1" ]]; then
+  echo "Seeding products..."
+  docker exec -i "${DB_CID}" psql -U signal -d signal_and_story < "${ROOT_DIR}/scripts/seed-products.sql"
+else
+  echo "Skipping product seed (set SAS_SEED_PRODUCTS=1 to seed)."
+fi
 
 echo "Done."
 

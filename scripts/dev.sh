@@ -59,7 +59,7 @@ free_port() {
 if [[ ! -f "${ROOT_DIR}/.env" ]]; then
   echo "No .env found. Copying from .env.example"
   cp "${ROOT_DIR}/.env.example" "${ROOT_DIR}/.env"
-  echo "Created .env. Fill POLAR/BREVO secrets as needed."
+  echo "Created .env. Fill Stripe/BREVO secrets as needed."
 fi
 
 set -a
@@ -69,8 +69,8 @@ set +a
 echo "Starting infra..."
 docker compose -f "${ROOT_DIR}/infra/docker-compose.yml" up -d
 
-echo "Migrating + seeding DB..."
-"${ROOT_DIR}/scripts/db-reset-and-seed.sh"
+echo "Migrating DB..."
+SAS_SEED_PRODUCTS="${SAS_SEED_PRODUCTS:-0}" "${ROOT_DIR}/scripts/db-reset-and-seed.sh"
 
 echo "Installing dependencies (if needed)..."
 if [[ ! -d "${ROOT_DIR}/apps/auth/node_modules" ]]; then
@@ -86,11 +86,12 @@ PUBLIC_API_BASE="${PUBLIC_API_BASE:-http://localhost:8788}"
 PUBLIC_AUTH_BASE="${PUBLIC_AUTH_BASE:-http://localhost:${AUTH_PORT}}"
 
 export APP_BASE_URL="${APP_BASE_URL:-http://localhost:4321}"
-export AUTH_BASE_URL="${AUTH_BASE_URL:-http://localhost:${AUTH_PORT}}"
+export AUTH_BASE_URL="${AUTH_BASE_URL:-http://localhost:${AUTH_PORT}/api/auth}"
 export AUTH_PORT
 export API_ADDR
 export PUBLIC_API_BASE
 export PUBLIC_AUTH_BASE
+export SAS_BUILD_ID="${SAS_BUILD_ID:-local-$(date +%s)}"
 
 API_LISTEN_PORT="${API_ADDR##*:}"
 if [[ "${API_LISTEN_PORT}" == "${API_ADDR}" ]]; then

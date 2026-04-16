@@ -5,6 +5,13 @@ import { auth, authHandler } from "./auth.js";
 
 const app = express();
 
+function isProductionEnv(): boolean {
+  return (
+    process.env.APP_ENV === "production" ||
+    process.env.NODE_ENV === "production"
+  );
+}
+
 const base = process.env.APP_BASE_URL ?? "http://localhost:4321";
 const allowlist = new Set<string>(
   [base, "http://localhost:4321", "http://127.0.0.1:4321"]
@@ -21,7 +28,10 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      callback(null, allowlist.has(origin));
+      if (allowlist.has(origin)) return callback(null, true);
+      // Match Better Auth: non-production accepts the browser Origin (e.g. Astro Network URL).
+      if (!isProductionEnv()) return callback(null, true);
+      callback(null, false);
     },
     credentials: true,
   })
@@ -31,6 +41,20 @@ app.use(
 app.all("/api/auth/*", authHandler);
 
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
+
+// Debug helper in dev to verify cookie + session.
+app.get("/debug/session", async (req, res) => {
+  try {
+    const session = await auth.api.getSession({ headers: req.headers });
+    return res.status(200).json({
+      hasCookieHeader: Boolean(req.headers.cookie),
+      cookieHeader: req.headers.cookie ?? null,
+      session: session ?? null,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "debug_session_failed" });
+  }
+});
 
 // Server-to-server session verification for Go API.
 app.get("/internal/session", async (req, res) => {

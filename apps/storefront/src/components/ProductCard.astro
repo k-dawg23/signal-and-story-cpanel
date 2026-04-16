@@ -25,7 +25,7 @@ const imageUrl = product.image_url ? String(product.image_url) : "";
       <div class="tag" style="border-color: rgba(168,85,247,.35)">{price}</div>
     </div>
   </a>
-  <button class="btn" type="button" onclick={`window.cart.add(${JSON.stringify(product)})`} style="width:100%">
+  <button class="btn" type="button" onclick={`window.cart.addAndNotify(${JSON.stringify(product)})`} style="width:100%">
     Add to cart
   </button>
 </div>

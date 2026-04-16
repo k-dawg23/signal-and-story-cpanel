@@ -38,8 +38,6 @@ ON CONFLICT (handle) DO UPDATE SET
   image_url = EXCLUDED.image_url;
 
 -- Rebuild collection mappings from the canonical products table.
-DELETE FROM product_collections;
-
 INSERT INTO product_collections (product_id, collection_id)
 SELECT p.id, c.id
 FROM products p

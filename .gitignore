@@ -8,8 +8,10 @@ dist/
 .turbo/
 .cache/
 coverage/
-\n+# Go\n+bin/
 tmp/
-\n+# IDE\n+.vscode/
+# Go
+bin/
+
+# IDE
+.vscode/
 .idea/
-\n*** End Patch

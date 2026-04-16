@@ -1,103 +1,34 @@
 # Signal & Story
 
-Premium musician gear for sci‑fi & fantasy worlds.
+Premium musician gear for sci‑fi and fantasy worlds — a full-stack demo store with accounts, checkout, and admin tools.
 
-## Dev setup
+## Stack
 
-Prereqs:
-- Docker + Docker Compose
-- Go (for `apps/api`)
-- Node.js (for `apps/storefront` and `apps/auth`)
+| Layer | Technology |
+|--------|------------|
+| **Storefront** | [Astro](https://astro.build/) — product catalog, cart, checkout, account, search, admin UI |
+| **API** | [Go](https://go.dev/) — REST API, Stripe Checkout + webhooks, orders, admin CRUD, CORS for the storefront |
+| **Auth** | [Better Auth](https://www.better-auth.com/) (Node) — sessions, magic links; session bridge for the Go API |
+| **Database** | PostgreSQL 16 (Docker) — products, collections, orders, line items |
+| **Payments** | [Stripe](https://stripe.com/) Checkout — server-priced line items, automatic tax, VAT-inclusive pricing |
+| **Email** | SMTP ([Mailpit](https://mailpit.axllent.org/) in dev) or [Brevo](https://www.brevo.com/) API for transactional mail |
 
-### 1) Infra (Postgres + Mailpit)
+Infra for local development: Docker Compose (Postgres, Mailpit, Adminer).
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
-```
+## Features
 
-Or run everything with the dev runner:
+- **Catalog** — Products, collections, and collection membership; storefront browsing and product detail.
+- **Search** — Server-backed search with live query handling.
+- **Cart & checkout** — Cart persistence in the UI; Stripe Checkout redirect; success page with session reference.
+- **Orders** — Order creation and updates via Stripe webhooks; order confirmation email with line items (Mailpit or Brevo).
+- **Shipping** — Checkout shipping options (e.g. standard / express / next-day) integrated with Stripe and order storage.
+- **Accounts** — Sign-in via magic link; session shared with the API for protected actions.
+- **Admin** — Admin area on the storefront for eligible users (`PUBLIC_ADMIN_EMAIL` / `ADMIN_EMAIL`): products, collections, orders; resend confirmation email where implemented.
 
-```bash
-./scripts/dev.sh
-```
+## Documentation
 
-Local services:
-- **Postgres**: `localhost:5433` (db: `signal_and_story`, user: `signal`, pass: `story`)
-- **Mailpit (SMTP)**: `localhost:1026`
-- **Mailpit UI**: `http://localhost:8026`
-- **Adminer**: `http://localhost:8081`
+- **Local setup, migrations, Stripe webhooks, email, and troubleshooting** → [DEVELOPMENT.md](./DEVELOPMENT.md)
 
-### 2) Database migrations + seed
+## License
 
-```bash
-./scripts/db-reset-and-seed.sh
-```
-
-### 3) Environment variables
-
-Copy `.env.example` to `.env` at the repo root and fill values as needed:
-
-- **Auth**: `BETTER_AUTH_SECRET`, `AUTH_BASE_URL`
-- **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`
-- **Email**: for local dev, SMTP uses Mailpit; for prod, set `BREVO_API_KEY` and sender fields.
-
-### 4) Auth service (Better Auth)
-
-```bash
-cd apps/auth
-npm install
-npm run dev
-```
-
-Auth runs on `http://localhost:8787` and exposes:
-- Better Auth routes: `/api/auth/*`
-- Session bridge for Go: `/internal/session`
-
-> Note: Better Auth DB tables are created via the Better Auth CLI. If you need to run migrations:
->
-> `cd apps/auth && npx auth migrate --config ./src/auth.ts`
-
-### 5) API (Go)
-
-```bash
-cd apps/api
-go run ./cmd/api
-```
-
-API runs on `http://localhost:8788`.
-### 6) Storefront (Astro)
-
-```bash
-cd apps/storefront
-npm install
-npm run dev
-```
-
-Storefront runs on `http://localhost:4321`.
-
-## Stripe setup notes (Checkout Session)
-
-Stripe Checkout Sessions are created from the server using DB-priced line items (to prevent client-side price tampering).
-
-- Set `STRIPE_SUCCESS_URL` to `http://localhost:4321/checkout/success` (the API appends `checkout_session_id` for display).
-- Set `STRIPE_CANCEL_URL` to `http://localhost:4321/checkout`.
-- Prices are treated as **VAT-inclusive**, and Stripe Checkout uses **automatic tax**.
-
-### Shipping options
-
-The storefront offers:
-- `standard` (free)
-- `express` (£2.99)
-- `next-day` (£5.99)
-
-## Webhooks
-
-Point your Stripe webhook endpoint to:
-
-- `POST http://<public-url>/webhooks/stripe`
-
-Configure the webhook to send at least:
-- `checkout.session.completed`
-
-Set `STRIPE_WEBHOOK_SECRET` to the signing secret from the Stripe Dashboard.
-
+See repository root or project policy for license terms.

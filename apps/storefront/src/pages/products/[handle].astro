@@ -39,7 +39,7 @@ const imageUrl = p?.image_url ? String(p.image_url) : "";
       <div class="tag" style="display:inline-flex;width:max-content;border-color: rgba(34,211,238,.35)">{price}</div>
       <div style="color:var(--muted);line-height:1.7" set:html={descHtml} />
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn" type="button" onclick={`window.cart.add(${JSON.stringify(p)})`}>Add to cart</button>
+        <button class="btn" type="button" onclick={`window.cart.addAndNotify(${JSON.stringify(p)})`}>Add to cart</button>
         <button class="btn secondary" type="button" onclick="window.cart.openDrawer()">Open cart</button>
       </div>
     </section>

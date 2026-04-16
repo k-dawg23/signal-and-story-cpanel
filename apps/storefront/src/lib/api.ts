@@ -1,4 +1,5 @@
-export const apiBase = import.meta.env.PUBLIC_API_BASE || "http://127.0.0.1:8788";
+// Default to `localhost` so Better Auth cookies are sent cross-service in dev.
+export const apiBase = import.meta.env.PUBLIC_API_BASE || "http://localhost:8788";
 
 export async function getJSON<T>(path: string): Promise<T> {
   const res = await fetch(`${apiBase}${path}`, { headers: { accept: "application/json" } });

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -13,19 +14,110 @@ import (
 	"time"
 )
 
-func (s *Server) sendOrderConfirmationEmail(toEmail, orderRef string) error {
+func moneyGBP(cents int64) string {
+	// Prices are GBP-only right now.
+	pounds := float64(cents) / 100.0
+	return fmt.Sprintf("£%.2f", pounds)
+}
+
+func (s *Server) sendOrderConfirmationEmail(ctx context.Context, toEmail string, orderID int64, orderRef string) error {
 	subject := "Signal & Story — Order confirmed"
+	type item struct {
+		Name           string
+		UnitPriceCents int64
+		Quantity       int
+	}
+	var (
+		status        string
+		currency      string
+		subtotalCents int64
+		shippingCents int64
+		taxCents      int64
+		totalCents    int64
+	)
+	_ = s.db.QueryRow(ctx, `
+		SELECT status, currency, subtotal_cents, shipping_cents, tax_cents, total_cents
+		FROM orders
+		WHERE id=$1
+	`, orderID).Scan(&status, &currency, &subtotalCents, &shippingCents, &taxCents, &totalCents)
+
+	rows, err := s.db.Query(ctx, `
+		SELECT product_name_snapshot, unit_price_cents, quantity
+		FROM order_items
+		WHERE order_id=$1
+		ORDER BY id ASC
+	`, orderID)
+	items := []item{}
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var it item
+			var unit int64
+			if err := rows.Scan(&it.Name, &unit, &it.Quantity); err != nil {
+				continue
+			}
+			it.UnitPriceCents = unit
+			items = append(items, it)
+		}
+	}
+
+	lines := bytes.NewBuffer(nil)
+	lines.WriteString("<ul style=\"padding-left:18px;margin:10px 0\">")
+	if len(items) == 0 {
+		lines.WriteString("<li>Items unavailable (local snapshot missing)</li>")
+	} else {
+		for _, it := range items {
+			lineTotal := it.UnitPriceCents * int64(it.Quantity)
+			lines.WriteString(fmt.Sprintf(
+				"<li><strong>%s</strong> &times; %d — %s</li>",
+				htmlEscape(it.Name),
+				it.Quantity,
+				moneyGBP(lineTotal),
+			))
+		}
+	}
+	lines.WriteString("</ul>")
+
+	_ = currency // currently not used in formatting; GBP assumed everywhere.
+
 	html := fmt.Sprintf(`<div style="font-family: ui-sans-serif, system-ui; line-height: 1.5">
-  <h2>Gear for Every Universe</h2>
-  <p>Your order is confirmed.</p>
+  <h2>Order confirmed</h2>
   <p><strong>Order:</strong> %s</p>
-  <p>If you have any questions, reply to this email.</p>
-</div>`, orderRef)
+  <p><strong>Status:</strong> %s</p>
+  <h3 style="margin:14px 0 6px 0">Items</h3>
+  %s
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee">
+    <div><strong>Subtotal:</strong> %s</div>
+    <div><strong>Shipping:</strong> %s</div>
+    <div><strong>Tax:</strong> %s</div>
+    <div style="margin-top:8px;font-size:18px"><strong>Total:</strong> %s</div>
+  </div>
+  <p style="margin-top:14px">If you have any questions, reply to this email.</p>
+</div>`,
+		htmlEscape(orderRef),
+		htmlEscape(status),
+		lines.String(),
+		moneyGBP(subtotalCents),
+		moneyGBP(shippingCents),
+		moneyGBP(taxCents),
+		moneyGBP(totalCents),
+	)
 
 	if apiKey := strings.TrimSpace(os.Getenv("BREVO_API_KEY")); apiKey != "" {
 		return sendBrevo(apiKey, toEmail, subject, html)
 	}
 	return sendSMTP(toEmail, subject, html)
+}
+
+func htmlEscape(s string) string {
+	replacer := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&quot;",
+		"'", "&#39;",
+	)
+	return replacer.Replace(s)
 }
 
 func sendBrevo(apiKey, toEmail, subject, html string) error {

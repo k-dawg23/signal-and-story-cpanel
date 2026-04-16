@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/stripe/stripe-go/v78"
+	checkoutsessionpkg "github.com/stripe/stripe-go/v78/checkout/session"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
 
@@ -25,6 +26,117 @@ func advisoryLockKeyStripeCheckout(sessionID string) int64 {
 		return 1
 	}
 	return v
+}
+
+func (s *Server) countOrderItems(ctx context.Context, orderID int64) (int64, error) {
+	var n int64
+	err := s.db.QueryRow(ctx, `SELECT COUNT(*) FROM order_items WHERE order_id=$1`, orderID).Scan(&n)
+	return n, err
+}
+
+func (s *Server) backfillOrderItemsFromStripeCheckoutSession(ctx context.Context, orderID int64, checkoutSessionID string) error {
+	key := strings.TrimSpace(s.cfg.StripeSecretKey)
+	if key == "" || strings.TrimSpace(checkoutSessionID) == "" {
+		return errors.New("stripe_not_configured")
+	}
+
+	stripe.Key = key
+
+	params := &stripe.CheckoutSessionListLineItemsParams{
+		Session: stripe.String(checkoutSessionID),
+	}
+	params.AddExpand("data.price.product")
+
+	iter := checkoutsessionpkg.ListLineItems(params)
+	for iter.Next() {
+		li := iter.LineItem()
+		if li == nil {
+			continue
+		}
+		qty := int(li.Quantity)
+		if qty <= 0 {
+			continue
+		}
+
+		name := strings.TrimSpace(li.Description)
+		if name == "" && li.Price != nil && li.Price.Product != nil {
+			name = strings.TrimSpace(li.Price.Product.Name)
+		}
+		if name == "" {
+			name = "Item"
+		}
+
+		var unit int64
+		if li.Price != nil && li.Price.UnitAmount > 0 {
+			unit = li.Price.UnitAmount
+		} else if li.AmountSubtotal > 0 {
+			unit = li.AmountSubtotal / int64(qty)
+		} else if li.AmountTotal > 0 {
+			unit = li.AmountTotal / int64(qty)
+		}
+		if unit < 0 {
+			unit = 0
+		}
+
+		_, err := s.db.Exec(ctx,
+			`INSERT INTO order_items (order_id, product_name_snapshot, unit_price_cents, quantity) VALUES ($1,$2,$3,$4)`,
+			orderID, name, int(unit), qty,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Server) backfillShippingAddressFromStripeCheckoutSession(ctx context.Context, orderID int64, checkoutSessionID string) error {
+	key := strings.TrimSpace(s.cfg.StripeSecretKey)
+	if key == "" || strings.TrimSpace(checkoutSessionID) == "" {
+		return errors.New("stripe_not_configured")
+	}
+	stripe.Key = key
+
+	// Note: `shipping_details` / `customer_details` are not expandable properties.
+	cs, err := checkoutsessionpkg.Get(checkoutSessionID, nil)
+	if err != nil || cs == nil {
+		return errors.New("stripe_session_get_failed")
+	}
+
+	addr := map[string]any{}
+	if cs.ShippingDetails != nil {
+		if name := strings.TrimSpace(cs.ShippingDetails.Name); name != "" {
+			addr["name"] = name
+		}
+		if cs.ShippingDetails.Address != nil {
+			a := cs.ShippingDetails.Address
+			addr["line1"] = a.Line1
+			addr["line2"] = a.Line2
+			addr["city"] = a.City
+			addr["state"] = a.State
+			addr["postal_code"] = a.PostalCode
+			addr["country"] = a.Country
+		}
+	}
+	if len(addr) == 0 && cs.CustomerDetails != nil && cs.CustomerDetails.Address != nil {
+		a := cs.CustomerDetails.Address
+		if name := strings.TrimSpace(cs.CustomerDetails.Name); name != "" {
+			addr["name"] = name
+		}
+		addr["line1"] = a.Line1
+		addr["line2"] = a.Line2
+		addr["city"] = a.City
+		addr["state"] = a.State
+		addr["postal_code"] = a.PostalCode
+		addr["country"] = a.Country
+	}
+	if len(addr) == 0 {
+		return nil
+	}
+	_, err = s.db.Exec(ctx, `UPDATE orders SET shipping_address=$2 WHERE id=$1`, orderID, mustJSON(addr))
+	return err
 }
 
 func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +291,7 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 	if cs.ShippingDetails != nil && cs.ShippingDetails.Address != nil {
 		a := cs.ShippingDetails.Address
 		shippingAddress = map[string]any{
+			"name":        strings.TrimSpace(cs.ShippingDetails.Name),
 			"line1":       a.Line1,
 			"line2":       a.Line2,
 			"city":        a.City,
@@ -266,7 +379,21 @@ func (s *Server) processStripeCheckoutSessionCompleted(ctx context.Context, raw 
 		return nil
 	}
 
-	if err := s.sendOrderConfirmationEmail(email, cs.ID); err != nil {
+	// If shipping address wasn't captured in the event, fall back to retrieving the session from Stripe.
+	if shippingAddress == nil || len(shippingAddress) == 0 {
+		if err := s.backfillShippingAddressFromStripeCheckoutSession(ctx, orderDBID, cs.ID); err != nil {
+			log.Printf("shipping address stripe backfill failed (order_id=%d session=%s): %v", orderDBID, cs.ID, err)
+		}
+	}
+
+	// If we failed to persist line items from our local checkout snapshot, fall back to Stripe.
+	if n, err := s.countOrderItems(ctx, orderDBID); err == nil && n == 0 {
+		if err := s.backfillOrderItemsFromStripeCheckoutSession(ctx, orderDBID, cs.ID); err != nil {
+			log.Printf("order items stripe backfill failed (order_id=%d session=%s): %v", orderDBID, cs.ID, err)
+		}
+	}
+
+	if err := s.sendOrderConfirmationEmail(ctx, email, orderDBID, cs.ID); err != nil {
 		log.Printf("order confirmation email failed: %v", err)
 		return err
 	}

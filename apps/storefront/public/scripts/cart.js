@@ -18,6 +18,39 @@
     if (el) el.textContent = String(count());
   };
 
+  const toast = (message) => {
+    let el = document.getElementById("sas-toast");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "sas-toast";
+      el.style.position = "fixed";
+      el.style.left = "50%";
+      el.style.bottom = "18px";
+      el.style.transform = "translateX(-50%)";
+      el.style.zIndex = "1000";
+      el.style.padding = "10px 12px";
+      el.style.borderRadius = "999px";
+      el.style.border = "1px solid rgba(168,85,247,.45)";
+      el.style.background = "rgba(10,8,16,.92)";
+      el.style.backdropFilter = "blur(10px)";
+      el.style.color = "rgba(255,255,255,.92)";
+      el.style.fontSize = "12px";
+      el.style.boxShadow = "0 10px 30px rgba(0,0,0,.55)";
+      el.style.opacity = "0";
+      el.style.pointerEvents = "none";
+      el.style.transition = "opacity 140ms ease, transform 140ms ease";
+      document.body.appendChild(el);
+    }
+    el.textContent = message;
+    el.style.opacity = "1";
+    el.style.transform = "translateX(-50%) translateY(0px)";
+    clearTimeout(el._t);
+    el._t = setTimeout(() => {
+      el.style.opacity = "0";
+      el.style.transform = "translateX(-50%) translateY(6px)";
+    }, 1500);
+  };
+
   const write = (items) => {
     localStorage.setItem(LS_KEY, JSON.stringify(items));
     renderDrawer();
@@ -30,6 +63,13 @@
     if (idx >= 0) items[idx].quantity += 1;
     else items.push({ handle: product.handle, name: product.name, price_cents: product.price_cents, image_url: product.image_url, quantity: 1 });
     write(items);
+  };
+
+  const addAndNotify = (product) => {
+    if (!product || !product.handle) return;
+    add(product);
+    openDrawer();
+    toast(`Added to cart • ${product.name}`);
   };
 
   const inc = (handle) => {
@@ -112,7 +152,7 @@
     `;
   };
 
-  window.cart = { read, write, add, inc, dec, remove, subtotal, count, openDrawer, closeDrawer };
+  window.cart = { read, write, add, addAndNotify, inc, dec, remove, subtotal, count, openDrawer, closeDrawer, toast };
 
   document.addEventListener("DOMContentLoaded", refreshBadge);
 

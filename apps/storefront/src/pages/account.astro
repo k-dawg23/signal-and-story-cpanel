@@ -17,14 +17,18 @@ import Base from "../layouts/Base.astro";
         <button class="btn" type="submit">Send link</button>
       </form>
       <div style="height:10px"></div>
-      <div id="login-status" class="tag">Not signed in.</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div id="login-status" class="tag">Not signed in.</div>
+        <a id="admin-link" class="btn secondary" href="/admin" style="display:none">Admin</a>
+        <button id="sign-out" class="btn secondary" type="button" style="display:none" onclick="signOut()">Sign out</button>
+      </div>
     </div>
 
     <div class="card" style="padding:14px">
       <h2 style="margin:0">Order history</h2>
-      <p style="color:var(--muted);margin-top:10px;line-height:1.6">After signing in, your orders will appear here.</p>
+      <p id="orders-hint" style="color:var(--muted);margin-top:10px;line-height:1.6">After signing in, your orders will appear here.</p>
       <div style="height:10px"></div>
-      <div id="orders" class="tag">No orders loaded yet.</div>
+      <div id="orders" class="grid" style="gap:10px">No orders loaded yet.</div>
       <div style="height:10px"></div>
       <button class="btn secondary" type="button" onclick="loadOrders()">Refresh</button>
     </div>
@@ -35,7 +39,7 @@ import Base from "../layouts/Base.astro";
       return window.__SAS__?.authBase || "http://localhost:8787";
     }
     function sasApiBase() {
-      return window.__SAS__?.apiBase || "http://127.0.0.1:8788";
+      return window.__SAS__?.apiBase || "http://localhost:8788";
     }
 
     async function sendMagicLink(e){
@@ -49,16 +53,28 @@ import Base from "../layouts/Base.astro";
       const authBase = sasAuthBase();
       if (s) s.textContent = "Sending…";
       try {
+        // Better Auth resolves relative callbackURL against AUTH_BASE_URL, so "/" becomes
+        // http://localhost:8787/ (Cannot GET /). Use an absolute storefront URL.
+        const isAdmin = (window.__SAS__?.adminEmail || "").toLowerCase() === String(email).toLowerCase();
+        const afterLogin = isAdmin
+          ? `${window.location.origin}/admin`
+          : `${window.location.origin}/account`;
         const res = await fetch(`${authBase}/api/auth/sign-in/magic-link`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({
+            email,
+            callbackURL: afterLogin,
+            errorCallbackURL: afterLogin,
+          }),
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          s.textContent =
-            "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
+          const hasBrevo = Boolean((window.__SAS__?.brevoEnabled ?? false));
+          s.textContent = hasBrevo
+            ? "Magic link sent. Check your inbox."
+            : "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
         } else {
           const msg =
             data?.message ||
@@ -89,19 +105,99 @@ import Base from "../layouts/Base.astro";
         root.textContent = "No orders yet.";
         return;
       }
-      root.innerHTML = `<div class="grid" style="gap:10px">
-        ${orders.map(o => `
-          <div class="card" style="padding:12px;display:flex;justify-content:space-between;gap:10px">
-            <div>
-              <div style="font-weight:800">Order #${o.id}</div>
-              <div style="color:var(--muted);font-size:12px;margin-top:4px">${o.status}</div>
-            </div>
-            <div class="tag">£${(o.total_cents/100).toFixed(2)}</div>
+      root.innerHTML = orders.map(o => {
+        const created = o.created_at ? new Date(o.created_at).toLocaleString() : "";
+        const items = (o.items || []);
+        const itemsHTML = items.length ? `
+          <div style="margin-top:10px;display:grid;gap:6px">
+            ${items.map(it => {
+              const line = ((it.unit_price_cents || 0) * (it.quantity || 0)) / 100;
+              return `<div style="display:flex;justify-content:space-between;gap:10px">
+                <div style="color:var(--muted);font-size:12px">${it.quantity} × ${escapeHTML(it.name || "")}</div>
+                <div class="tag">£${line.toFixed(2)}</div>
+              </div>`;
+            }).join("")}
           </div>
-        `).join("")}
-      </div>`;
+        ` : `<div class="tag" style="margin-top:10px">No item details for this order.</div>`;
+
+        return `
+          <details class="card" style="padding:12px">
+            <summary style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="font-weight:800">Order #${o.id}</div>
+                <div style="color:var(--muted);font-size:12px">${escapeHTML(o.status || "")}${created ? ` • ${created}` : ``}</div>
+              </div>
+              <div class="tag">£${(o.total_cents/100).toFixed(2)}</div>
+            </summary>
+            ${itemsHTML}
+          </details>
+        `;
+      }).join("");
     }
     window.loadOrders = loadOrders;
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"']/g, (c) => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[c]));
+    }
+
+    async function loadSession(){
+      const s = document.getElementById("login-status");
+      const hint = document.getElementById("orders-hint");
+      const btn = document.getElementById("sign-out");
+      const adminLink = document.getElementById("admin-link");
+      const authBase = sasAuthBase();
+      try {
+        const res = await fetch(`${authBase}/api/auth/get-session`, {
+          method: "GET",
+          credentials: "include",
+          headers: { accept: "application/json" },
+        });
+        const data = await res.json().catch(() => null);
+        const email = data?.session?.user?.email || data?.user?.email;
+        if (res.ok && email) {
+          s.textContent = `Signed in as ${email}.`;
+          if (hint) hint.style.display = "none";
+          if (btn) btn.style.display = "inline-flex";
+          const adminEmail = (window.__SAS__?.adminEmail || "").toLowerCase();
+          if (adminLink) {
+            adminLink.style.display =
+              adminEmail && adminEmail === String(email).toLowerCase()
+                ? "inline-flex"
+                : "none";
+          }
+        } else {
+          s.textContent = "Not signed in.";
+          if (hint) hint.style.display = "";
+          if (btn) btn.style.display = "none";
+          if (adminLink) adminLink.style.display = "none";
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        s.textContent = `Session check failed: ${msg}`;
+      }
+    }
+    window.loadSession = loadSession;
+
+    async function signOut(){
+      const authBase = sasAuthBase();
+      const s = document.getElementById("login-status");
+      if (s) s.textContent = "Signing out…";
+      try {
+        await fetch(`${authBase}/api/auth/sign-out`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+        });
+      } catch {}
+      // Reload to clear UI state.
+      window.location.reload();
+    }
+    window.signOut = signOut;
+
+    // Load session + orders on page load.
+    loadSession().then(() => loadOrders()).catch(() => {});
   </script>
 </Base>
 
