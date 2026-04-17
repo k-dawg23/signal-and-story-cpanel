@@ -6,8 +6,8 @@ This project can live in **two separate GitHub repos** so deployment and mental 
 
 | Repository | API | Typical hosting |
 |------------|-----|-----------------|
-| **`signal-and-story`** (or `signal-and-story-go`) | **Go** (`apps/api`) | VPS, systemd, reverse proxy — see [PRODUCTION.md](./PRODUCTION.md) §10 |
-| **`signal-and-story-cpanel`** | **Node** (`apps/api-node`) | cPanel **Setup Node.js App** — see [PRODUCTION.md](./PRODUCTION.md) §10 (shared hosting alternative) |
+| **`signal-and-story`** (or `signal-and-story-go`) | **Go** (`apps/api`) | VPS, systemd, reverse proxy — see [PRODUCTION.md](https://github.com/k-dawg23/signal-and-story/blob/main/PRODUCTION.md) §10 |
+| **`signal-and-story-cpanel`** | **Node** (`apps/api-node`) | cPanel **Setup Node.js App** — see [PRODUCTION.md](./PRODUCTION.md) §9.2 |
 
 Shared pieces in both: **`apps/auth`**, **`apps/storefront`**, **`apps/api/migrations/*.sql`**, **`infra/`**, **`scripts/`** (with small differences in `scripts/dev.sh` after export).
 
