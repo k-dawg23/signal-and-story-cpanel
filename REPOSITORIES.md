@@ -1,5 +1,7 @@
 # Two GitHub repositories (Go line vs Node line)
 
+**Published (k-dawg23):** [signal-and-story](https://github.com/k-dawg23/signal-and-story) (Go API on `main`) · [signal-and-story-cpanel](https://github.com/k-dawg23/signal-and-story-cpanel) (Node API on `main`). The monorepo snapshot with **both** APIs is tag **`monorepo-both-v1`** on `signal-and-story`.
+
 This project can live in **two separate GitHub repos** so deployment and mental overhead stay clear:
 
 | Repository | API | Typical hosting |
