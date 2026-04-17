@@ -145,10 +145,42 @@ if [[ "${AUTH_OK}" -ne 1 ]]; then
 fi
 
 API_OK=0
-if GO_CMD="$(find_go)"; then
-  echo "Starting API on http://localhost:${API_LISTEN_PORT} ..."
-  API_LOG="${ROOT_DIR}/tmp/api.log"
-  mkdir -p "${ROOT_DIR}/tmp"
+API_LOG="${ROOT_DIR}/tmp/api.log"
+mkdir -p "${ROOT_DIR}/tmp"
+
+### EXPORT_OMIT_GO_LINE_START
+if [[ "${SAS_API:-go}" == "node" ]]; then
+  echo "Starting Node API (apps/api-node) on http://localhost:${API_LISTEN_PORT} ..."
+  if [[ ! -d "${ROOT_DIR}/apps/api-node/node_modules" ]]; then
+    (cd "${ROOT_DIR}/apps/api-node" && npm install) >/dev/null 2>&1 || true
+  fi
+  (
+    set -a
+    source "${ROOT_DIR}/.env"
+    set +a
+    export API_ADDR=":${API_LISTEN_PORT}"
+    cd "${ROOT_DIR}/apps/api-node" && npm run dev
+  ) >"${API_LOG}" 2>&1 &
+  PIDS+=("$!")
+
+  echo "Waiting for API /healthz..."
+  for _ in {1..40}; do
+    if curl -fsS "http://127.0.0.1:${API_LISTEN_PORT}/healthz" >/dev/null 2>&1; then
+      API_OK=1
+      break
+    fi
+    sleep 0.25
+  done
+
+  if [[ "${API_OK}" -ne 1 ]]; then
+    echo "Node API did not become healthy. Storefront may run in offline-catalog mode." >&2
+    echo "API log: ${API_LOG}" >&2
+    tail -n 80 "${API_LOG}" >&2 || true
+  fi
+### EXPORT_OMIT_GO_LINE_END
+### EXPORT_OMIT_NODE_LINE_START
+elif GO_CMD="$(find_go)"; then
+  echo "Starting Go API on http://localhost:${API_LISTEN_PORT} ..."
   (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" mod download) >/dev/null 2>&1 || true
   (cd "${ROOT_DIR}/apps/api" && "${GO_CMD}" run ./cmd/api) >"${API_LOG}" 2>&1 &
   API_PID="$!"
@@ -172,6 +204,8 @@ if GO_CMD="$(find_go)"; then
   fi
 else
   echo "Go is not installed (or not on PATH); skipping API start. The storefront will run in offline-catalog mode." >&2
+  echo "Tip: install Go or run with SAS_API=node to use apps/api-node." >&2
+### EXPORT_OMIT_NODE_LINE_END
 fi
 
 echo "Starting storefront on http://localhost:4321 ..."
@@ -182,7 +216,7 @@ echo
 echo "Dev stack is running:"
 echo "- Storefront: http://localhost:4321"
 echo "- Auth:       http://localhost:${AUTH_PORT}"
-echo "- API:        http://localhost:${API_LISTEN_PORT} (requires Go)"
+echo "- API:        http://localhost:${API_LISTEN_PORT} (Go, or SAS_API=node for api-node)"
 echo "- Mailpit UI: http://localhost:8026"
 echo
 echo "Press Ctrl+C to stop."

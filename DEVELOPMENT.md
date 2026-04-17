@@ -6,7 +6,7 @@ How to run **Signal & Story** locally for development and integration testing (a
 
 - **Docker** and **Docker Compose** (Postgres, Mailpit, Adminer)
 - **Node.js** (LTS recommended) for `apps/auth` and `apps/storefront`
-- **Go** (for `apps/api`) — optional only if you need the live API; without Go the storefront can run in offline catalog mode
+- **Go** (for `apps/api`) **or Node** (for `apps/api-node`) — for the live API. Without either, the storefront can run in offline catalog mode. On shared hosting you typically deploy **`apps/api-node`** (see **`PLAN_NODE_API_SHARED_HOSTING.md`**).
 - **curl**, **ss** (used by `scripts/dev.sh` for health checks and optional port cleanup)
 
 ## Quick start (recommended)
@@ -24,7 +24,7 @@ This script:
 3. Runs database migrations (`scripts/db-reset-and-seed.sh`)
 4. Optionally seeds sample products if `SAS_SEED_PRODUCTS=1` is set (in `.env` or the environment)
 5. Runs Better Auth migrations (non-interactive confirm)
-6. Starts **auth** (default port **8787**), **API** (**8788**), and **storefront** (**4321**)
+6. Starts **auth** (default port **8787**), **API** (**8788** — Go by default, or set **`SAS_API=node`** for **`apps/api-node`**), and **storefront** (**4321**)
 
 Press **Ctrl+C** to stop the Node/Go processes (Docker containers keep running unless you stop them separately).
 
@@ -81,12 +81,22 @@ docker compose -f infra/docker-compose.yml up -d
    npm run dev
    ```
 
-2. **API**
+2. **API** (Go)
 
    ```bash
    cd apps/api
    go run ./cmd/api
    ```
+
+   **API** (Node — same HTTP surface as Go, for cPanel / no Go):
+
+   ```bash
+   cd apps/api-node
+   npm install
+   npm run dev
+   ```
+
+   Or from repo root: **`SAS_API=node ./scripts/dev.sh`**
 
 3. **Storefront**
 

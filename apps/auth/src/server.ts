@@ -1,7 +1,21 @@
 import "./load-env.js";
+import type { IncomingHttpHeaders } from "node:http";
 import express from "express";
 import cors from "cors";
 import { auth, authHandler } from "./auth.js";
+
+/** Better Auth expects Fetch `Headers`; Express uses `IncomingHttpHeaders`. */
+function toWebHeaders(headers: IncomingHttpHeaders): Headers {
+  const h = new Headers();
+  for (const [key, raw] of Object.entries(headers)) {
+    if (raw === undefined) continue;
+    const values = Array.isArray(raw) ? raw : [raw];
+    for (const v of values) {
+      if (v !== undefined && v !== "") h.append(key, v);
+    }
+  }
+  return h;
+}
 
 const app = express();
 
@@ -45,7 +59,7 @@ app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 // Debug helper in dev to verify cookie + session.
 app.get("/debug/session", async (req, res) => {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: toWebHeaders(req.headers) });
     return res.status(200).json({
       hasCookieHeader: Boolean(req.headers.cookie),
       cookieHeader: req.headers.cookie ?? null,
@@ -59,7 +73,7 @@ app.get("/debug/session", async (req, res) => {
 // Server-to-server session verification for Go API.
 app.get("/internal/session", async (req, res) => {
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    const session = await auth.api.getSession({ headers: toWebHeaders(req.headers) });
     if (!session) return res.status(200).json({ session: null });
     return res.status(200).json({ session });
   } catch (err) {

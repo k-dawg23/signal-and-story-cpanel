@@ -1,5 +1,6 @@
+-- BIGSERIAL avoids uuid-ossp (often unavailable without superuser on shared hosting).
 CREATE TABLE IF NOT EXISTS checkout_sessions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id BIGSERIAL PRIMARY KEY,
   user_id TEXT,
   email TEXT,
   cart JSONB NOT NULL,

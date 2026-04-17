@@ -7,7 +7,7 @@ Premium musician gear for sci‑fi and fantasy worlds — a full-stack demo stor
 | Layer | Technology |
 |--------|------------|
 | **Storefront** | [Astro](https://astro.build/) — product catalog, cart, checkout, account, search, admin UI |
-| **API** | [Go](https://go.dev/) — REST API, Stripe Checkout + webhooks, orders, admin CRUD, CORS for the storefront |
+| **API** | [Go](https://go.dev/) or **Node** ([Fastify](https://fastify.dev/) in `apps/api-node`) — same HTTP contract; see [REPOSITORIES.md](./REPOSITORIES.md) if you use two GitHub repos |
 | **Auth** | [Better Auth](https://www.better-auth.com/) (Node) — sessions, magic links; session bridge for the Go API |
 | **Database** | PostgreSQL 16 (Docker) — products, collections, orders, line items |
 | **Payments** | [Stripe](https://stripe.com/) Checkout — server-priced line items, automatic tax, VAT-inclusive pricing |
@@ -28,6 +28,7 @@ Infra for local development: Docker Compose (Postgres, Mailpit, Adminer).
 ## Documentation
 
 - **Local setup, migrations, Stripe webhooks, email, and troubleshooting** → [DEVELOPMENT.md](./DEVELOPMENT.md)
+- **Publishing two GitHub repos (Go API vs Node API)** → [REPOSITORIES.md](./REPOSITORIES.md)
 
 ## License
 

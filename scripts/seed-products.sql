@@ -63,6 +63,8 @@ CROSS JOIN LATERAL (
 
     -- Instruments (mostly general/guitar-bass)
     (CASE WHEN p.handle IN ('chrome-cathedral-overdrive','lichlight-delay','starforged-reverb','ironfable-chorus','glitch-hex-fuzz','duskritual-compressor') THEN 'guitar-bass' END, 'instrument'),
+    (CASE WHEN p.handle IN ('chrome-cathedral-overdrive','lichlight-delay','starforged-reverb','ironfable-chorus','glitch-hex-fuzz') THEN 'guitar' END, 'instrument'),
+    (CASE WHEN p.handle IN ('duskritual-compressor') THEN 'bass' END, 'instrument'),
     (CASE WHEN p.handle IN ('grimwood-tuner','phasegate-metronome','runegrid-practice-pad','neon-wyrm-patch-cable','voidglass-instrument-cable-3m','starlance-instrument-cable-6m') THEN 'general' END, 'instrument')
 ) AS tags(slug, type)
 JOIN collections c ON c.slug = tags.slug AND c.type::text = tags.type
