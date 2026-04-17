@@ -15,26 +15,6 @@ need_cmd npm
 need_cmd curl
 need_cmd ss
 
-find_go() {
-  if command -v go >/dev/null 2>&1; then
-    echo "go"
-    return 0
-  fi
-  if [[ -x "/usr/local/go/bin/go" ]]; then
-    echo "/usr/local/go/bin/go"
-    return 0
-  fi
-  if [[ -x "/usr/bin/go" ]]; then
-    echo "/usr/bin/go"
-    return 0
-  fi
-  if [[ -x "/snap/bin/go" ]]; then
-    echo "/snap/bin/go"
-    return 0
-  fi
-  return 1
-}
-
 pids_listening_on_port() {
   local port="$1"
   # Example ss line:
@@ -78,6 +58,9 @@ if [[ ! -d "${ROOT_DIR}/apps/auth/node_modules" ]]; then
 fi
 if [[ ! -d "${ROOT_DIR}/apps/storefront/node_modules" ]]; then
   (cd "${ROOT_DIR}/apps/storefront" && npm install)
+fi
+if [[ ! -d "${ROOT_DIR}/apps/api-node/node_modules" ]]; then
+  (cd "${ROOT_DIR}/apps/api-node" && npm install)
 fi
 
 AUTH_PORT="${AUTH_PORT:-8787}"
@@ -148,34 +131,29 @@ API_OK=0
 API_LOG="${ROOT_DIR}/tmp/api.log"
 mkdir -p "${ROOT_DIR}/tmp"
 
-if [[ "${SAS_API:-go}" == "node" ]]; then
-  echo "Starting Node API (apps/api-node) on http://localhost:${API_LISTEN_PORT} ..."
-  if [[ ! -d "${ROOT_DIR}/apps/api-node/node_modules" ]]; then
-    (cd "${ROOT_DIR}/apps/api-node" && npm install) >/dev/null 2>&1 || true
-  fi
-  (
-    set -a
-    source "${ROOT_DIR}/.env"
-    set +a
-    export API_ADDR=":${API_LISTEN_PORT}"
-    cd "${ROOT_DIR}/apps/api-node" && npm run dev
-  ) >"${API_LOG}" 2>&1 &
-  PIDS+=("$!")
+echo "Starting Node API (apps/api-node) on http://localhost:${API_LISTEN_PORT} ..."
+(
+  set -a
+  source "${ROOT_DIR}/.env"
+  set +a
+  export API_ADDR=":${API_LISTEN_PORT}"
+  cd "${ROOT_DIR}/apps/api-node" && npm run dev
+) >"${API_LOG}" 2>&1 &
+PIDS+=("$!")
 
-  echo "Waiting for API /healthz..."
-  for _ in {1..40}; do
-    if curl -fsS "http://127.0.0.1:${API_LISTEN_PORT}/healthz" >/dev/null 2>&1; then
-      API_OK=1
-      break
-    fi
-    sleep 0.25
-  done
-
-  if [[ "${API_OK}" -ne 1 ]]; then
-    echo "Node API did not become healthy. Storefront may run in offline-catalog mode." >&2
-    echo "API log: ${API_LOG}" >&2
-    tail -n 80 "${API_LOG}" >&2 || true
+echo "Waiting for API /healthz..."
+for _ in {1..40}; do
+  if curl -fsS "http://127.0.0.1:${API_LISTEN_PORT}/healthz" >/dev/null 2>&1; then
+    API_OK=1
+    break
   fi
+  sleep 0.25
+done
+
+if [[ "${API_OK}" -ne 1 ]]; then
+  echo "Node API did not become healthy. Storefront may run in offline-catalog mode." >&2
+  echo "API log: ${API_LOG}" >&2
+  tail -n 80 "${API_LOG}" >&2 || true
 fi
 
 echo "Starting storefront on http://localhost:4321 ..."
@@ -186,7 +164,7 @@ echo
 echo "Dev stack is running:"
 echo "- Storefront: http://localhost:4321"
 echo "- Auth:       http://localhost:${AUTH_PORT}"
-echo "- API:        http://localhost:${API_LISTEN_PORT} (Node API — see signal-and-story for Go)"
+echo "- API:        http://localhost:${API_LISTEN_PORT} (apps/api-node)"
 echo "- Mailpit UI: http://localhost:8026"
 echo
 echo "Press Ctrl+C to stop."

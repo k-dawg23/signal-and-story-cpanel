@@ -1,8 +1,10 @@
 # Production migration plan — `signal-and-story.k-dawg.uk`
 
-Ordered steps for **shared hosting**: **cPanel**, **SSH**, **Setup Node.js App** (or **Application Manager**), **Node.js**, **PostgreSQL**, **no Docker**.
+Ordered steps for **shared hosting**: **cPanel**, **SSH**, **Setup Node.js App** (or **Application Manager**), **Node.js** (auth, **API**, storefront), **PostgreSQL**, **no Docker**.
 
-**Builds** (`npm run build`, `npx auth migrate`, `go build`) run on **your PC** (or CI). On the server you typically only run **`npm install`** / **Ensure dependencies** through cPanel—not arbitrary shell `npm` commands—unless your host allows SSH `npm`.
+This repository is the **Node API** line (`apps/api-node` — Fastify). The **Go API** reference implementation lives in **[signal-and-story](https://github.com/k-dawg23/signal-and-story)**; this stack matches the same HTTP contract and environment variable names but deploys like **`apps/auth`** (no Go binary, no separate reverse-proxy process for the API).
+
+**Builds** (`npm run build` for auth, API, and storefront; `npx auth migrate`) run on **your PC** (or CI). On the server you typically only run **`npm install`** / **Ensure dependencies** through cPanel—not arbitrary shell `npm` commands—unless your host allows SSH `npm`.
 
 ---
 
@@ -12,7 +14,7 @@ Ordered steps for **shared hosting**: **cPanel**, **SSH**, **Setup Node.js App**
 |--------|---------|-------------------|--------------------------------|
 | **Storefront** | Astro (hybrid) + **Node** adapter | `https://signal-and-story.k-dawg.uk` | **Setup Node.js App** (Passenger behind the scenes on many hosts) |
 | **Auth** | **Node** (Better Auth / Express) | e.g. `https://auth.signal-and-story.k-dawg.uk` | Second **Setup Node.js App** entry |
-| **API** | **Go** (compiled binary) | e.g. `https://api.signal-and-story.k-dawg.uk` | **Not** a standard Node app — see §10 |
+| **API** | **Node** (Fastify in `apps/api-node`) | e.g. `https://api.signal-and-story.k-dawg.uk` | **Setup Node.js App** — see §9.2 |
 | **PostgreSQL** | — | On-server (often `localhost:5432`) | cPanel PostgreSQL |
 
 **Subdomains:** Auth and the API each need a **stable HTTPS origin** (`AUTH_BASE_URL`, `PUBLIC_AUTH_BASE`, `PUBLIC_API_BASE`). Separate subdomains are the straightforward choice.
@@ -22,27 +24,13 @@ Ordered steps for **shared hosting**: **cPanel**, **SSH**, **Setup Node.js App**
 - **Setup Node.js App** — Usually exposes **Node version**, **environment variables**, **application root**, **startup file**, and **Run NPM Install**. Prefer this when available.
 - **Application Manager** — Some installs only let you **register** an app (name, domain, path, enable, ensure dependencies) with **no env UI**. Then use a **`.env` file in the application root** (same folder as `package.json`) for secrets and URLs; see §6.
 
-**Go API:** Deployed as a **static `CGO_ENABLED=0` binary** plus your host’s method for a **public URL** and **long-lived process** — not the Node app wizard.
+**API:** Use the same **Setup Node.js App** workflow as auth (§9.2): **application root** = folder with **`package.json`**, **startup file** = **`dist/server.js`** after **`npm run build`** on your PC.
 
 ---
 
-## 1. Pre-flight: confirm Go on the server (optional but recommended)
+## 1. Node version (auth, API, storefront)
 
-1. SSH: `uname -m` → **`GOARCH=amd64`** for `x86_64`, **`arm64`** for `aarch64`.
-2. Build a tiny smoke binary on your PC with **`CGO_ENABLED=0`** so **old glibc** on the host does not cause `GLIBC_2.xx not found`:
-
-   ```bash
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o go-smoke .
-   ```
-
-3. Upload, `chmod +x go-smoke`, run and `curl` locally on the server.
-
-4. Real API (from **`apps/api`**, where **`go.mod`** lives):
-
-   ```bash
-   cd apps/api
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o api ./cmd/api
-   ```
+Match **major** Node on your PC to cPanel (e.g. **22.20.0** on server → **22.x** locally). Avoid building on **Node 24** while the server runs **20/22**. Use **nvm** / **fnm** if needed. Apply this to **`apps/auth`**, **`apps/api-node`**, and **`apps/storefront`** builds.
 
 ---
 
@@ -68,7 +56,7 @@ Ordered steps for **shared hosting**: **cPanel**, **SSH**, **Setup Node.js App**
 Use **Test mode** first; repeat for **Live** when stable.
 
 1. **API keys** — [Stripe Dashboard → API keys](https://dashboard.stripe.com/apikeys).
-2. **Webhook** — Public URL on the **Go API**, e.g. `https://api.signal-and-story.k-dawg.uk/webhooks/stripe`, event **`checkout.session.completed`**. Set **`STRIPE_WEBHOOK_SECRET`** on the API host.
+2. **Webhook** — Public URL on the **Node API**, e.g. `https://api.signal-and-story.k-dawg.uk/webhooks/stripe`, event **`checkout.session.completed`**. Set **`STRIPE_WEBHOOK_SECRET`** on the API app’s environment (§6.2 / §9.2).
 3. **`STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL`** on the API — HTTPS storefront URLs, e.g. `https://signal-and-story.k-dawg.uk/checkout/success` and `…/checkout`.
 
 ---
@@ -76,7 +64,7 @@ Use **Test mode** first; repeat for **Live** when stable.
 ## 5. Email (overview)
 
 - **Auth (magic links):** Brevo and/or SMTP — exact variable names in **§6.1**.
-- **API (order confirmation):** same Brevo/SMTP pattern on the **Go** process — **§6.2**.
+- **API (order confirmation):** same Brevo/SMTP pattern on the **Node API** — **§6.2**.
 - Do not use Mailpit-style localhost SMTP in production.
 
 ---
@@ -127,7 +115,7 @@ Never commit secrets. In **cPanel’s environment variable fields**, enter **raw
 
 **Not used by the auth app:** `STRIPE_*`, `ADMIN_EMAIL`, `PUBLIC_ADMIN_EMAIL`, `SAS_SEED_PRODUCTS`.
 
-### 6.2 Go API (`apps/api`)
+### 6.2 Node API (`apps/api-node`)
 
 | Variable | Note |
 |----------|------|
@@ -154,7 +142,7 @@ Baked into the built Astro app; changing them requires a **rebuild**:
 
 ## 7. Database schema — API migrations (from your PC)
 
-SQL files: `apps/api/migrations/*.sql` in numeric order.
+SQL files live under **`apps/api/migrations/*.sql`** (legacy path — this repo keeps **only** those `.sql` files; there is no Go module here). Apply in numeric order.
 
 ```bash
 psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f apps/api/migrations/001_init.sql
@@ -198,15 +186,13 @@ If you **cannot** run `npx` locally, you must use a machine that can (tunnel sti
 
 ## 9. Build Node apps locally; deploy via Setup Node.js App
 
-### Node version
+### Where to upload (auth, API, storefront)
 
-Match **major** Node to cPanel (e.g. **22.20.0** on server → **22.x** locally). Avoid building on **Node 24** while the server runs **20/22**. Use **nvm** / **fnm** if needed.
+For **auth** and **`apps/api-node`**, the compiled entry is **`dist/server.js`**. For the **storefront**, the entry is under **`dist/server/`** (typically **`entry.mjs`**) — see §9.3.
 
-### Where to upload (auth and storefront)
+Upload into each **application root** in cPanel: **`package.json`**, **`package-lock.json`**, **`dist/`**, and optionally **`.env`**. The **startup file** is **relative to that root**.
 
-Upload into the **application root** you set in cPanel: that directory should contain **`package.json`**, **`package-lock.json`**, **`dist/`**, and optionally **`.env`**. The **startup file** is **relative to that root** (e.g. **`dist/server.js`** for auth).
-
-`load-env` in auth reads **`.env` next to `package.json`** (flat deploy) — suitable if the panel has no env UI.
+`load-env` in auth reads **`.env` next to `package.json`** (flat deploy) — suitable if the panel has no env UI. The API loads repo-root **`.env`** when present (see `apps/api-node` config).
 
 ### 9.1 Auth
 
@@ -219,7 +205,22 @@ Upload into the **application root** you set in cPanel: that directory should co
 
 **If you see a directory index** at the site root: the vhost is still serving **static files**; the Node app is not wired or not running. Fix **application root**, **startup file**, **Run NPM Install**, and **Restart** per host docs—not `/healthz` until that is resolved.
 
-### 9.2 Storefront (Astro + `@astrojs/node`)
+### 9.2 API (`apps/api-node`)
+
+1. On your PC: `cd apps/api-node && npm install && npm run build`.
+2. Upload **`dist/`**, **`package.json`**, **`package-lock.json`** to the API application root.
+3. **Setup Node.js App:** set **Application URL** (e.g. `api.signal-and-story.k-dawg.uk`), **Application startup file** **`dist/server.js`**, **environment variables** per **§6.2**.
+4. Run **Run NPM Install** / ensure dependencies, then **Restart**.
+
+**Listen address:** set **`API_ADDR`** if needed (default **`:8788`**). Some hosts inject **`PORT`**; align with your provider’s Node app docs if the process fails to bind.
+
+**Stripe webhook** (Dashboard): **`https://<your-api-host>/webhooks/stripe`** — mounted at the **root** of the API app (not under `/api`). **`STRIPE_WEBHOOK_SECRET`** must match this endpoint’s signing secret.
+
+**Smoke tests:** `GET https://api.signal-and-story.k-dawg.uk/healthz` → plain **`ok`**; `GET …/api/_meta/build` → JSON.
+
+**Prerequisites:** **§7** (SQL migrations) and **§8** (Better Auth tables) before checkout can succeed.
+
+### 9.3 Storefront (Astro + `@astrojs/node`)
 
 This repo uses **`output: "hybrid"`** and **`@astrojs/node`** in **`mode: "standalone"`** (`apps/storefront/astro.config.mjs`). The **Node server entry** is emitted under **`dist/server/`** after a production build.
 
@@ -271,122 +272,6 @@ Reference: [Astro — Deploy your Astro Site to a Node server](https://docs.astr
 
 ---
 
-## 10. Go API — full deployment flow
-
-The API is a **single Go binary** (`cmd/api`) that speaks HTTP, talks to **PostgreSQL**, calls **Stripe**, verifies sessions against **Better Auth**, and sends **order email** (Brevo or SMTP). cPanel’s **Setup Node.js App** does **not** run this; you **compile on your PC**, upload the binary, run it under SSH (or your host’s process manager), and put a **reverse proxy** (or equivalent) in front so **`https://api.…`** reaches it.
-
-### Shared hosting alternative: Node API (`apps/api-node`)
-
-To avoid a Go binary and reverse proxy on shared hosting, deploy **`apps/api-node`** with **Setup Node.js App** (same pattern as **`apps/auth`**): install dependencies, run **`npm run build`**, set the application **startup file** to **`dist/server.js`**, and configure **the same environment variables as §10.4** (see also **§6.2**). Point Stripe’s webhook URL and the storefront **`PUBLIC_API_BASE`** at this app’s public HTTPS URL. The Go steps below remain the right path for a VPS or any host where you can run a static Linux binary behind your own proxy.
-
-### 10.1 Prerequisites (before this step)
-
-1. **§7** — API SQL migrations applied to production Postgres.
-2. **§8** — Better Auth tables exist (same `DATABASE_URL` user can reach from wherever the API runs).
-3. **§4** — You know the public API base URL (e.g. `https://api.signal-and-story.k-dawg.uk`) for Stripe **webhook** configuration.
-4. **Storefront** — `PUBLIC_API_BASE` in your **built** storefront (§6.3 / §9.2) must match that same HTTPS API URL.
-
-### 10.2 Build the binary (on your PC)
-
-From the repo, **`apps/api`** must contain **`go.mod`** (do not build from a folder without the module).
-
-1. On the server (SSH): `uname -m` → **`amd64`** for `x86_64`, **`arm64`** for `aarch64`.
-
-2. On your PC:
-
-   ```bash
-   cd apps/api
-   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o api ./cmd/api
-   ```
-
-   Use **`GOARCH=arm64`** on ARM hosts. **`CGO_ENABLED=0`** avoids **glibc** version errors on older shared-host Linux.
-
-3. You get one file: **`api`** (Linux executable). No separate `node_modules`; you do **not** need to upload Go source for production.
-
-### 10.3 Upload
-
-Upload **`api`** to a directory on the server (e.g. `~/bin/signal-api/` or a path your host recommends). On SSH:
-
-```bash
-chmod +x ./api
-```
-
-Keep the binary **outside** world-readable web roots if possible.
-
-### 10.4 Environment variables
-
-Set these in the **shell** that starts the process, a **wrapper script**, **`systemd` `Environment=`**, or whatever your host documents — cPanel rarely has a GUI for Go.
-
-**Required for a working site:**
-
-| Variable | Purpose |
-|----------|---------|
-| **`DATABASE_URL`** | Postgres connection (same DB as auth; from server’s perspective often `localhost` / `127.0.0.1`). |
-| **`AUTH_BASE_URL`** | Better Auth public base **including** `/api/auth`, e.g. `https://auth.signal-and-story.k-dawg.uk/api/auth` — used to verify sessions with the auth service. |
-| **`APP_BASE_URL`** | Storefront origin for **CORS**, e.g. `https://signal-and-story.k-dawg.uk`. |
-| **`ADMIN_EMAIL`** | Email allowed to use admin API routes. |
-| **`STRIPE_SECRET_KEY`** | Stripe secret (`sk_live_…` / `sk_test_…`). |
-| **`STRIPE_WEBHOOK_SECRET`** | Signing secret for **`checkout.session.completed`** webhook. |
-| **`STRIPE_SUCCESS_URL`** / **`STRIPE_CANCEL_URL`** | HTTPS storefront checkout success / cancel URLs. |
-
-**Recommended:**
-
-| Variable | Purpose |
-|----------|---------|
-| **`API_ADDR`** | Listen address. Default **`:8788`**. If a reverse proxy on the same machine forwards to a fixed port, set e.g. **`127.0.0.1:8788`**. |
-| **`APP_ENV`** | Set **`production`** once you are live (some debug-only behaviour is gated on this). |
-| **`APP_ORIGIN_ALLOWLIST`** | Optional comma-separated extra CORS origins (`www`, previews). |
-
-**Order confirmation email** (same idea as auth — Brevo if key set, else SMTP):
-
-- **`BREVO_API_KEY`**, **`BREVO_SENDER_EMAIL`**, **`BREVO_SENDER_NAME`**, or  
-- **`SMTP_HOST`**, **`SMTP_PORT`**, **`SMTP_USER`**, **`SMTP_PASS`**, **`SMTP_FROM`**
-
-Optional: **`SAS_BUILD_ID`** (shown on `GET /api/_meta/build` for sanity checks).
-
-Full cross-reference: **§6.2**.
-
-### 10.5 Listen address and reverse proxy
-
-- The process listens on **`API_ADDR`** (default **all interfaces `:8788`**). For shared hosting, binding **`127.0.0.1:8788`** is often safer so only the local web server can reach the API.
-- **HTTPS** is usually terminated by **Apache/Nginx** in front of you. Configure the host so:
-
-  - **`https://api.signal-and-story.k-dawg.uk`** proxies to **`http://127.0.0.1:8788`** (or whatever port you chose).
-
-- **Stripe webhook URL** in the Dashboard must be exactly:
-
-  **`https://<your-api-host>/webhooks/stripe`**
-
-  This route is mounted at the **root** of the API (not under `/api`). Example:  
-  `https://api.signal-and-story.k-dawg.uk/webhooks/stripe`
-
-### 10.6 Run the process
-
-**Smoke test (SSH):**
-
-```bash
-export DATABASE_URL='…'
-export AUTH_BASE_URL='https://auth.signal-and-story.k-dawg.uk/api/auth'
-export APP_BASE_URL='https://signal-and-story.k-dawg.uk'
-# … all other vars from §10.4 …
-./api
-```
-
-In another session (or browser):
-
-- **`GET https://api.signal-and-story.k-dawg.uk/healthz`** → **`ok`**
-- **`GET https://api.signal-and-story.k-dawg.uk/api/_meta/build`** → JSON (email backend hints; no secrets)
-
-For **production**, avoid tying the API to an interactive SSH session. Use whatever your provider supports: **`nohup`**, **`screen`**, **`tmux`**, **`systemd` user service**, or their documented **daemon** / **application** wrapper. If the host **cannot** keep a long-lived Go process or **cannot** proxy to it, run the API on **another** machine (VPS/PaaS) and point **`PUBLIC_API_BASE`** and Stripe there — only if Postgres and policy allow remote access.
-
-### 10.7 After deploy
-
-1. Confirm **CORS**: storefront origin matches **`APP_BASE_URL`** / allowlist (browser checkout calls the API).
-2. **Stripe** — send a test event or complete a test checkout; Dashboard → Webhooks should show **200** for `checkout.session.completed`.
-3. **Order email** — confirm a message arrives after a test order.
-
----
-
 ## 11. End-to-end order (checklist)
 
 1. DNS + SSL for storefront, auth, API.
@@ -394,8 +279,8 @@ For **production**, avoid tying the API to an interactive SSH session. Use whate
 3. **API SQL migrations** (§7) and **Better Auth migrate** (§8).
 4. Stripe test webhook + URLs (§4).
 5. Deploy **auth** (§9.1); **`/healthz`** OK.
-6. Deploy **storefront** (§9.2).
-7. Deploy **Go `api`** (§10); public **`/healthz`** OK.
+6. Deploy **API** (§9.2); **`/healthz`** and **`/api/_meta/build`** OK.
+7. Deploy **storefront** (§9.3); **`PUBLIC_API_BASE`** matches the live API URL.
 8. Smoke-test checkout, webhooks, mail, magic link, admin (§12).
 
 ---
@@ -420,8 +305,7 @@ For **production**, avoid tying the API to an interactive SSH session. Use whate
 | Email | Mailpit | Brevo / SMTP |
 | URLs | `http://localhost` | **HTTPS** |
 | Webhooks | Stripe CLI | `https://api…/webhooks/stripe` |
-| Node | `npm run dev` | **Local `npm run build`**; cPanel **`npm install`** + **Setup Node.js App** |
-| Go | `go run` | **`CGO_ENABLED=0` binary** |
+| Node (auth, API, storefront) | `npm run dev` | **Local `npm run build`**; cPanel **`npm install`** + **Setup Node.js App** |
 | Env UI | `.env` | cPanel fields **or** app-root **`.env`** |
 
 ---

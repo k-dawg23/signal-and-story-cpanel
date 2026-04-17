@@ -1,14 +1,14 @@
-# Signal & Story
+# Signal & Story (Node API)
 
-Premium musician gear for sci‑fi and fantasy worlds — a full-stack demo store with accounts, checkout, and admin tools.
+Premium musician gear for sci‑fi and fantasy worlds — a full-stack demo store with accounts, checkout, and admin tools. This repo uses a **Fastify** API in **`apps/api-node`** for shared hosting; the **Go** reference API is **[signal-and-story](https://github.com/k-dawg23/signal-and-story)**.
 
 ## Stack
 
 | Layer | Technology |
 |--------|------------|
 | **Storefront** | [Astro](https://astro.build/) — product catalog, cart, checkout, account, search, admin UI |
-| **API** | [Go](https://go.dev/) or **Node** ([Fastify](https://fastify.dev/) in `apps/api-node`) — same HTTP contract; see [REPOSITORIES.md](./REPOSITORIES.md) if you use two GitHub repos |
-| **Auth** | [Better Auth](https://www.better-auth.com/) (Node) — sessions, magic links; session bridge for the Go API |
+| **API** | [Fastify](https://fastify.dev/) (Node, `apps/api-node`) — same HTTP contract as the Go API |
+| **Auth** | [Better Auth](https://www.better-auth.com/) (Node) — sessions, magic links; session bridge for the API |
 | **Database** | PostgreSQL 16 (Docker) — products, collections, orders, line items |
 | **Payments** | [Stripe](https://stripe.com/) Checkout — server-priced line items, automatic tax, VAT-inclusive pricing |
 | **Email** | SMTP ([Mailpit](https://mailpit.axllent.org/) in dev) or [Brevo](https://www.brevo.com/) API for transactional mail |
@@ -28,7 +28,8 @@ Infra for local development: Docker Compose (Postgres, Mailpit, Adminer).
 ## Documentation
 
 - **Local setup, migrations, Stripe webhooks, email, and troubleshooting** → [DEVELOPMENT.md](./DEVELOPMENT.md)
-- **Publishing two GitHub repos (Go API vs Node API)** → [REPOSITORIES.md](./REPOSITORIES.md)
+- **Production (auth, API, storefront on cPanel)** → [PRODUCTION.md](./PRODUCTION.md)
+- **Two-repo layout** → [REPOSITORIES.md](./REPOSITORIES.md)
 
 ## License
 

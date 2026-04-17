@@ -1,17 +1,18 @@
 # Development guide
 
-How to run **Signal & Story** locally for development and integration testing (auth, API, storefront, Stripe, email).
+How to run **Signal & Story** locally for development and integration testing (auth, **Node API**, storefront, Stripe, email).
+
+This repository is the **Node API** line (`apps/api-node`). The **Go API** lives in **[signal-and-story](https://github.com/k-dawg23/signal-and-story)** and is not developed here.
 
 ## Prerequisites
 
 - **Docker** and **Docker Compose** (Postgres, Mailpit, Adminer)
-- **Node.js** (LTS recommended) for `apps/auth` and `apps/storefront`
-- **Go** (for `apps/api`) **or Node** (for `apps/api-node`) — for the live API. Without either, the storefront can run in offline catalog mode. On shared hosting you typically deploy **`apps/api-node`** (see **`PLAN_NODE_API_SHARED_HOSTING.md`**).
+- **Node.js** (LTS recommended) for `apps/auth`, **`apps/api-node`**, and `apps/storefront`
 - **curl**, **ss** (used by `scripts/dev.sh` for health checks and optional port cleanup)
 
 ## Quick start (recommended)
 
-From the repository root (`signal-and-story/`):
+From the repository root:
 
 ```bash
 ./scripts/dev.sh
@@ -21,12 +22,12 @@ This script:
 
 1. Creates `.env` from `.env.example` if missing
 2. Starts infra via `infra/docker-compose.yml`
-3. Runs database migrations (`scripts/db-reset-and-seed.sh`)
+3. Runs database migrations (`scripts/db-reset-and-seed.sh`) — SQL under **`apps/api/migrations/`**
 4. Optionally seeds sample products if `SAS_SEED_PRODUCTS=1` is set (in `.env` or the environment)
 5. Runs Better Auth migrations (non-interactive confirm)
-6. Starts **auth** (default port **8787**), **API** (**8788** — Go by default, or set **`SAS_API=node`** for **`apps/api-node`**), and **storefront** (**4321**)
+6. Starts **auth** (default port **8787**), **Node API** (**8788**), and **storefront** (**4321**)
 
-Press **Ctrl+C** to stop the Node/Go processes (Docker containers keep running unless you stop them separately).
+Press **Ctrl+C** to stop the Node processes (Docker containers keep running unless you stop them separately).
 
 ### Ports and URLs
 
@@ -81,22 +82,13 @@ docker compose -f infra/docker-compose.yml up -d
    npm run dev
    ```
 
-2. **API** (Go)
-
-   ```bash
-   cd apps/api
-   go run ./cmd/api
-   ```
-
-   **API** (Node — same HTTP surface as Go, for cPanel / no Go):
+2. **API** (`apps/api-node`)
 
    ```bash
    cd apps/api-node
    npm install
    npm run dev
    ```
-
-   Or from repo root: **`SAS_API=node ./scripts/dev.sh`**
 
 3. **Storefront**
 
@@ -144,7 +136,7 @@ For local webhook forwarding, use the [Stripe CLI](https://stripe.com/docs/strip
 
 - Storefront **Admin** appears on `/account` when the signed-in user’s email matches `PUBLIC_ADMIN_EMAIL`.
 - Admin routes live under `http://localhost:4321/admin`.
-- The Go API checks `ADMIN_EMAIL` against the session email for admin endpoints.
+- The Node API checks `ADMIN_EMAIL` against the session email for admin endpoints.
 
 ## CORS and origins
 
@@ -157,8 +149,8 @@ The API enables CORS for the storefront origin(s) so browser calls from the Astr
 - **Checkout “failed to fetch”**: confirm the API is running and CORS allows your storefront origin.
 - **Search returns no results**: the search page must not be fully prerendered without query params — use live data for `?q=`.
 - **Port already in use**: run with `SAS_FREE_PORTS=1` (default) or stop the conflicting process; check `tmp/auth.log` / `tmp/api.log`.
-- **API not starting**: install Go and ensure `DATABASE_URL` matches a healthy Postgres from Docker.
+- **API not starting**: ensure `DATABASE_URL` is set and run `npm install` in `apps/api-node`; check `tmp/api.log`.
 
 ## Production testing
 
-Production-like checks (real domains, HTTPS, live Stripe webhooks, Brevo) should use environment-specific `.env` values and the same variable names as in `.env.example`. Do not commit secrets; configure them in your host or secret store.
+Production-like checks (real domains, HTTPS, live Stripe webhooks, Brevo) should use environment-specific `.env` values and the same variable names as in `.env.example`. Do not commit secrets; configure them in your host or secret store. See **[PRODUCTION.md](./PRODUCTION.md)** for cPanel deployment of auth, API, and storefront.
