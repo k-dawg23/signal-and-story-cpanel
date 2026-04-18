@@ -4,7 +4,8 @@ import { apiBase, authBase } from "../lib/api";
 
 const { title = "Signal & Story", description = "Gear for Every Universe" } = Astro.props;
 const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL ?? import.meta.env.ADMIN_EMAIL ?? "";
-const brevoEnabled = Boolean(import.meta.env.BREVO_API_KEY);
+/** Only true for `astro dev` / dev builds — not derived from Brevo (auth holds that secret). */
+const isDev = import.meta.env.DEV;
 ---
 <!doctype html>
 <html lang="en">
@@ -13,8 +14,8 @@ const brevoEnabled = Boolean(import.meta.env.BREVO_API_KEY);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-    <script is:inline define:vars={{ apiBase, authBase, adminEmail, brevoEnabled }}>
-      window.__SAS__ = { apiBase, authBase, adminEmail, brevoEnabled };
+    <script is:inline define:vars={{ apiBase, authBase, adminEmail, isDev }}>
+      window.__SAS__ = { apiBase, authBase, adminEmail, isDev };
     </script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>

@@ -71,10 +71,9 @@ import Base from "../layouts/Base.astro";
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          const hasBrevo = Boolean((window.__SAS__?.brevoEnabled ?? false));
-          s.textContent = hasBrevo
-            ? "Magic link sent. Check your inbox."
-            : "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox).";
+          s.textContent = window.__SAS__?.isDev
+            ? "Magic link sent. In local dev, open Mailpit at http://localhost:8026 (not your real inbox)."
+            : "Magic link sent. Check your inbox.";
         } else {
           const msg =
             data?.message ||
