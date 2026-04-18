@@ -262,11 +262,21 @@ export async function processStripeCheckoutSessionCompleted(
       await backfillOrderItemsFromStripeCheckoutSession(pool, stripe, orderDBID, cs.id).catch(() => {});
     }
 
-    await sendOrderConfirmationEmail(pool, email, orderDBID, cs.id);
-    await pool.query(
-      `UPDATE orders SET confirmation_email_sent_at = now() WHERE id=$1 AND confirmation_email_sent_at IS NULL`,
+    // Exactly-once email per order: two webhook deliveries (different event ids, host retries, etc.)
+    // can both pass processed_webhooks; claim the send slot before calling Brevo/SMTP.
+    const claim = await pool.query(
+      `UPDATE orders SET confirmation_email_sent_at = now() WHERE id=$1 AND confirmation_email_sent_at IS NULL RETURNING id`,
       [orderDBID]
     );
+    if (!claim.rows[0]) {
+      return;
+    }
+    try {
+      await sendOrderConfirmationEmail(pool, email, orderDBID, cs.id);
+    } catch (e) {
+      await pool.query(`UPDATE orders SET confirmation_email_sent_at = NULL WHERE id=$1`, [orderDBID]);
+      throw e;
+    }
   } catch (e) {
     try {
       await client.query("ROLLBACK");
