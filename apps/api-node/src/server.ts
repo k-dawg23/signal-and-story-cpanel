@@ -263,15 +263,15 @@ function buildApp(pool: Pool, cfg: ReturnType<typeof loadConfig>) {
       created_at: Date;
       items: Array<{ name: string; unit_price_cents: number; quantity: number }>;
     };
-    const or = userID
-      ? await pool.query(
-          `SELECT id, email, status, total_cents, created_at FROM orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50`,
-          [userID]
-        )
-      : await pool.query(
-          `SELECT id, email, status, total_cents, created_at FROM orders WHERE email=$1 ORDER BY created_at DESC LIMIT 50`,
-          [email]
-        );
+    // Match by user_id OR email: checkout often stores user_id as null when the session
+    // cookie was not forwarded to POST /api/checkout/session, but the order email still matches.
+    const or = await pool.query(
+      `SELECT id, email, status, total_cents, created_at FROM orders
+       WHERE ($1::text <> '' AND user_id = $1)
+          OR ($2::text <> '' AND lower(trim(email)) = lower(trim($2::text)))
+       ORDER BY created_at DESC LIMIT 50`,
+      [userID, email]
+    );
     const out: OrderRow[] = or.rows.map((r) => ({
       id: Number(r.id),
       email: r.email as string,
