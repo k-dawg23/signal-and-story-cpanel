@@ -119,7 +119,7 @@ Logs from auth/API when using `dev.sh`: `tmp/auth.log`, `tmp/api.log`.
 
 Checkout uses **Stripe Checkout Sessions** with server-side line items from the database (prices are not trusted from the client). VAT is treated as **inclusive**; Checkout uses **automatic tax**.
 
-- Set `STRIPE_SUCCESS_URL` to `http://localhost:4321/checkout/success` (the API may append `checkout_session_id`).
+- Set `STRIPE_SUCCESS_URL` to `http://localhost:4321/checkout/success` with **no** query string. When creating a Checkout Session, the API sets Stripe’s success URL to that base plus `session_id={CHECKOUT_SESSION_ID}` (Stripe replaces the placeholder). The storefront `/checkout/success` page calls **`GET /api/checkout/success-details`** to load the receipt (email, line items, total). Legacy links with `checkout_session_id=` still work for older sessions.
 - Set `STRIPE_CANCEL_URL` to `http://localhost:4321/checkout`.
 - Configure a webhook endpoint that your running API can receive, e.g.:
 

@@ -57,7 +57,7 @@ Use **Test mode** first; repeat for **Live** when stable.
 
 1. **API keys** — [Stripe Dashboard → API keys](https://dashboard.stripe.com/apikeys).
 2. **Webhook** — Public URL on the **Node API**, e.g. `https://api.signal-and-story.k-dawg.uk/webhooks/stripe`, event **`checkout.session.completed`**. Set **`STRIPE_WEBHOOK_SECRET`** on the API app’s environment (§6.2 / §9.2).
-3. **`STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL`** on the API — HTTPS storefront URLs, e.g. `https://signal-and-story.k-dawg.uk/checkout/success` and `…/checkout`.
+3. **`STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL`** on the API — HTTPS storefront URLs **without** extra query params, e.g. `https://signal-and-story.k-dawg.uk/checkout/success` and `…/checkout`. The API adds `session_id={CHECKOUT_SESSION_ID}` to the success URL so the storefront can load order details from Stripe after payment.
 
 ---
 
