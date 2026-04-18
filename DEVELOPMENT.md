@@ -49,7 +49,7 @@ Copy `.env.example` to `.env` at the repo root. For `astro dev` run only inside 
 
 - **Shared / URLs**: `APP_BASE_URL`, optional `APP_ORIGIN_ALLOWLIST` (comma-separated extra allowed origins, e.g. LAN or preview URLs)
 - **Database**: `DATABASE_URL` (must match Docker Postgres)
-- **Better Auth**: `BETTER_AUTH_SECRET`, `AUTH_BASE_URL` (typically `http://localhost:8787/api/auth`)
+- **Better Auth**: `BETTER_AUTH_SECRET`, `AUTH_BASE_URL` (typically `http://localhost:8787/api/auth`); **`AUTH_COOKIE_DOMAIN`** is for **production** when storefront, auth, and API use different subdomains (see `.env.example` and **[PRODUCTION.md](./PRODUCTION.md)** §6.1 — not needed for single-host local dev).
 - **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`
 - **Email (dev)**: Mailpit via `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, etc.
 - **Email (Brevo, optional)**: `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME` — when set, auth and order flows can use Brevo instead of SMTP
@@ -129,6 +129,8 @@ Checkout uses **Stripe Checkout Sessions** with server-side line items from the 
 
 For local webhook forwarding, use the [Stripe CLI](https://stripe.com/docs/stripe-cli) `stripe listen --forward-to localhost:8788/webhooks/stripe` and paste the CLI webhook secret into `STRIPE_WEBHOOK_SECRET`.
 
+Order confirmation email is sent from the webhook handler and is **deduped per Stripe Checkout Session** using the **`checkout_confirmation_email_sent`** table (**`007_checkout_confirmation_email_sent.sql`**). Ensure migrations through **007** are applied on any database that runs the Node API.
+
 ## Email: Mailpit vs Brevo
 
 - **Default dev**: transactional email goes to **Mailpit** over SMTP (`SMTP_*` in `.env`). Open http://localhost:8026 to read messages.
@@ -147,8 +149,11 @@ The API enables CORS for the storefront origin(s) so browser calls from the Astr
 ## Troubleshooting
 
 - **Auth “invalid origin” or session missing**: ensure `APP_BASE_URL` / `trustedOrigins` match the URL you use in the browser; avoid mixing `localhost` and `127.0.0.1` for the same session.
+- **Account shows signed in but order history says “sign in”** (production, subdomain split): set **`AUTH_COOKIE_DOMAIN`** on the **auth** app so session cookies are visible to the API; see **[PRODUCTION.md](./PRODUCTION.md)** §6.1.
+- **Magic link `ATTEMPTS_EXCEEDED`**: corporate scanners may prefetch the verify URL; the auth app raises **`allowedAttempts`** on the magic-link plugin — deploy the latest **`apps/auth`** build.
 - **Magic link lands on wrong page**: magic links should use an absolute `callbackURL` pointing at the storefront; see auth app configuration.
 - **Checkout “failed to fetch”**: confirm the API is running and CORS allows your storefront origin.
+- **Two order confirmation emails**: apply migration **007**, use a **single** Stripe webhook endpoint for the live API, and check Brevo for duplicate automations (**[PRODUCTION.md](./PRODUCTION.md)** §12).
 - **Search returns no results**: the search page must not be fully prerendered without query params — use live data for `?q=`.
 - **Port already in use**: run with `SAS_FREE_PORTS=1` (default) or stop the conflicting process; check `tmp/auth.log` / `tmp/api.log`.
 - **API not starting**: ensure `DATABASE_URL` is set and run `npm install` in `apps/api-node`; check `tmp/api.log`.

@@ -121,7 +121,7 @@ Never commit secrets. In **cPanel’s environment variable fields**, enter **raw
 | Variable | Note |
 |----------|------|
 | **`DATABASE_URL`** | Same as auth. |
-| **`API_ADDR`** | Listen address, e.g. `:8788` or host-required value. |
+| **`API_ADDR`** | Listen address, e.g. `:8788`. If unset, **`PORT`** from the host (e.g. cPanel) is used — see §9.2. |
 | **`AUTH_BASE_URL`** | Same value as auth’s public base (for session verification), e.g. `https://auth.signal-and-story.k-dawg.uk/api/auth`. |
 | **`APP_BASE_URL`** | Storefront origin for **CORS** (scheme + host, no path). Use the same host users open in the browser (e.g. `https://signal-and-story.k-dawg.uk`). If you serve both **apex** and **`www`**, add the other host in **`APP_ORIGIN_ALLOWLIST`**. Trailing slashes are normalized, but **`www` vs non-`www` are different origins**. |
 | **`APP_ORIGIN_ALLOWLIST`** | Optional comma-separated extra storefront origins allowed to call the API with cookies (e.g. `https://www.signal-and-story.k-dawg.uk`). |
@@ -149,7 +149,7 @@ SQL files live under **`apps/api/migrations/*.sql`** (legacy path — this repo 
 psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f apps/api/migrations/001_init.sql
 ```
 
-Repeat for each file. Use **single quotes** around `DATABASE_URL` in **bash** if the password contains **`!`**.
+Repeat for each file through **`007_checkout_confirmation_email_sent.sql`** (required for idempotent order-confirmation email on webhooks). Use **single quotes** around `DATABASE_URL` in **bash** if the password contains **`!`**.
 
 **Extensions:** `001_init.sql` may try `CREATE EXTENSION "uuid-ossp"`; on shared hosting that often **fails** (no superuser). Current **`003_checkout_sessions.sql`** uses **`BIGSERIAL`**, so **`uuid-ossp` is not required** for checkout sessions.
 

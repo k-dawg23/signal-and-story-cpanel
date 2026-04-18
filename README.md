@@ -20,7 +20,7 @@ Infra for local development: Docker Compose (Postgres, Mailpit, Adminer).
 - **Catalog** — Products, collections, and collection membership; storefront browsing and product detail.
 - **Search** — Server-backed search with live query handling.
 - **Cart & checkout** — Cart persistence in the UI; Stripe Checkout redirect; success page with session reference.
-- **Orders** — Order creation and updates via Stripe webhooks; order confirmation email with line items (Mailpit or Brevo).
+- **Orders** — Order creation and updates via Stripe webhooks; order confirmation email with line items (Mailpit or Brevo), deduped per Checkout Session after migration **007**.
 - **Shipping** — Checkout shipping options (e.g. standard / express / next-day) integrated with Stripe and order storage.
 - **Accounts** — Sign-in via magic link; session shared with the API for protected actions.
 - **Admin** — Admin area on the storefront for eligible users (`PUBLIC_ADMIN_EMAIL` / `ADMIN_EMAIL`): products, collections, orders; resend confirmation email where implemented.
