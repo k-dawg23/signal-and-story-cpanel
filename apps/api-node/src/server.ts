@@ -1,17 +1,18 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import { Pool } from "pg";
 import Stripe from "stripe";
+import { getCheckoutSuccessDetails } from "./checkoutSuccessDetails.js";
 import { loadConfig } from "./config.js";
 import { sendOrderConfirmationEmail } from "./email.js";
 import { fetchShippingAddressFromStripe, handleStripeWebhook } from "./stripeWebhook.js";
 import {
-  addQuery,
   escapeLike,
   isEmptyShippingAddr,
   nilIfBlankPtr,
   nullIfEmpty,
   sendJson,
   shippingCost,
+  stripeCheckoutSuccessUrl,
 } from "./util.js";
 
 type ProductRow = {
@@ -144,6 +145,21 @@ function buildApp(pool: Pool, cfg: ReturnType<typeof loadConfig>) {
     }
   });
 
+  app.get("/api/checkout/success-details", async (req, reply) => {
+    const qry = req.query as Record<string, string | string[] | undefined>;
+    const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+    const stripeSid = String(one(qry["session_id"])).trim();
+    const internalSid = String(one(qry["checkout_session_id"])).trim();
+    const result = await getCheckoutSuccessDetails(
+      pool,
+      cfg.stripeSecretKey,
+      stripeSid || undefined,
+      internalSid || undefined
+    );
+    if (!result.ok) return sendJson(reply, result.status, { error: result.error });
+    return sendJson(reply, 200, result.data);
+  });
+
   app.post("/api/checkout/session", async (req, reply) => {
     if (!cfg.stripeSecretKey || !cfg.stripeSuccessUrl || !cfg.stripeCancelUrl) {
       return sendJson(reply, 412, { error: "stripe_not_configured" });
@@ -216,7 +232,7 @@ function buildApp(pool: Pool, cfg: ReturnType<typeof loadConfig>) {
     try {
       const sess = await stripe.checkout.sessions.create({
         mode: "payment",
-        success_url: addQuery(cfg.stripeSuccessUrl, "checkout_session_id", checkoutSessionID),
+        success_url: stripeCheckoutSuccessUrl(cfg.stripeSuccessUrl),
         cancel_url: cfg.stripeCancelUrl,
         automatic_tax: { enabled: true },
         shipping_address_collection: { allowed_countries: ["GB"] },

@@ -39,6 +39,13 @@ export function addQuery(rawURL: string, key: string, value: string): string {
   }
 }
 
+/** Stripe replaces `{CHECKOUT_SESSION_ID}` in the success URL after payment. */
+export function stripeCheckoutSuccessUrl(baseRaw: string): string {
+  const base = baseRaw.trim();
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}session_id={CHECKOUT_SESSION_ID}`;
+}
+
 export function nilIfBlankPtr(p: string | null | undefined): string | null {
   if (p === undefined || p === null) return null;
   const t = String(p).trim();
