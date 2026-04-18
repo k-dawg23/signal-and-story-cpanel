@@ -71,7 +71,7 @@ Use **Test mode** first; repeat for **Live** when stable.
 
 ## 6. Environment variables — what goes where
 
-Never commit secrets. In **cPanel’s environment variable fields**, enter **raw values** (no wrapping `'` / `"` unless those characters are literally part of the secret). That UI is **not** bash; **`!`** in passwords is fine without quotes.
+Never commit secrets. In **cPanel’s environment variable fields**, enter **raw values** (no wrapping `'` / `"` unless those characters are literally part of the secret). That UI is **not** bash; **`!`** in passwords is fine without quotes. **URLs must be exact:** a stray **space** in a hostname (e.g. `k dawg` instead of `k-dawg`) breaks `APP_BASE_URL` and causes **CORS** failures on checkout. The API also allows the origin derived from **`STRIPE_SUCCESS_URL`** and **`STRIPE_CANCEL_URL`** as a safeguard if **`APP_BASE_URL`** is wrong.
 
 ### 6.1 Auth Node app (`apps/auth` — Setup Node.js App)
 

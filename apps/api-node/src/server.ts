@@ -41,13 +41,26 @@ function normalizeOrigin(input: string): string {
   }
 }
 
-function defaultAllowedOrigins(): string[] {
+/** Add storefront origin from a full URL (e.g. STRIPE_SUCCESS_URL) so CORS still works if APP_BASE_URL is mis-typed in the panel. */
+function addOriginFromFullUrl(set: Set<string>, raw: string | undefined) {
+  const s = raw?.trim();
+  if (!s) return;
+  try {
+    set.add(normalizeOrigin(new URL(s).origin));
+  } catch {
+    /* ignore invalid URL */
+  }
+}
+
+function computeAllowedOrigins(): Set<string> {
   const base = normalizeOrigin(process.env.APP_BASE_URL?.trim() || "http://localhost:4321");
   const out = new Set<string>([
     base,
     normalizeOrigin("http://localhost:4321"),
     normalizeOrigin("http://127.0.0.1:4321"),
   ]);
+  addOriginFromFullUrl(out, process.env.STRIPE_SUCCESS_URL);
+  addOriginFromFullUrl(out, process.env.STRIPE_CANCEL_URL);
   const raw = process.env.APP_ORIGIN_ALLOWLIST?.trim();
   if (raw) {
     for (const part of raw.split(",")) {
@@ -55,10 +68,13 @@ function defaultAllowedOrigins(): string[] {
       if (v) out.add(normalizeOrigin(v));
     }
   }
-  return [...out];
+  return out;
 }
 
 function buildApp(pool: Pool, cfg: ReturnType<typeof loadConfig>) {
+  const corsAllow = computeAllowedOrigins();
+  console.error(`api-node CORS allowed origins: ${[...corsAllow].sort().join(" | ")}`);
+
   const app = Fastify({ logger: false });
 
   app.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
@@ -79,8 +95,7 @@ function buildApp(pool: Pool, cfg: ReturnType<typeof loadConfig>) {
 
   app.addHook("onRequest", async (req, reply) => {
     const origin = (req.headers.origin || "").trim();
-    const allow = new Set(defaultAllowedOrigins());
-    if (origin && allow.has(origin)) {
+    if (origin && corsAllow.has(origin)) {
       reply.header("Access-Control-Allow-Origin", origin);
       reply.header("Vary", "Origin");
       reply.header("Access-Control-Allow-Credentials", "true");
