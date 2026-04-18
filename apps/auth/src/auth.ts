@@ -61,6 +61,9 @@ export const auth = betterAuth({
   },
   plugins: [
     magicLink({
+      // Default is 1: corporate scanners / link previews often prefetch the verify URL once,
+      // so the user's click hits ATTEMPTS_EXCEEDED. A small cushion fixes that without weakening much.
+      allowedAttempts: 5,
       sendMagicLink: async ({ email, url }) => {
         try {
           await sendEmail({
