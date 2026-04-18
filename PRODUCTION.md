@@ -82,6 +82,7 @@ Never commit secrets. In **cPanel’s environment variable fields**, enter **raw
 | **`DATABASE_URL`** | Same database as the API. |
 | **`BETTER_AUTH_SECRET`** | Strong random secret (not dev). |
 | **`AUTH_BASE_URL`** | Must include **`/api/auth`**, e.g. `https://auth.signal-and-story.k-dawg.uk/api/auth`. |
+| **`AUTH_COOKIE_DOMAIN`** | **Required** when storefront, auth, and API use different hosts under the same site (e.g. `signal-and-story.k-dawg.uk` **without** `https://`). Sets Better Auth **cross-subdomain** cookies so the API receives the session cookie on `fetch('/api/account/orders')`. After enabling, users should **sign in again** once. |
 
 **URLs / CORS:**
 

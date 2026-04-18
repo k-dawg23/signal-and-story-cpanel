@@ -42,6 +42,9 @@ function normalizeAuthBaseURL(raw: string): string {
   return trimmed.endsWith("/api/auth") ? trimmed : `${trimmed}/api/auth`;
 }
 
+/** Parent site domain (no scheme), e.g. `signal-and-story.k-dawg.uk`. When set, session cookies are scoped for all subdomains so the Node API can read the session (it forwards this cookie to `/internal/session`). */
+const authCookieDomain = process.env.AUTH_COOKIE_DOMAIN?.trim() || "";
+
 const pool = new Pool({
   connectionString: mustGetEnv("DATABASE_URL"),
 });
@@ -50,6 +53,16 @@ export const auth = betterAuth({
   database: pool,
   secret: mustGetEnv("BETTER_AUTH_SECRET"),
   baseURL: normalizeAuthBaseURL(mustGetEnv("AUTH_BASE_URL")),
+  advanced: {
+    ...(authCookieDomain
+      ? {
+          crossSubDomainCookies: {
+            enabled: true,
+            domain: authCookieDomain,
+          },
+        }
+      : {}),
+  },
   trustedOrigins: (request) => {
     const origins = new Set(defaultTrustedOrigins());
     // Outside production, trust the browser Origin (LAN Network URL, alternate port, etc.).
