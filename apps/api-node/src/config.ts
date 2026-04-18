@@ -18,8 +18,17 @@ export type AppConfig = {
   stripeCancelUrl: string;
 };
 
+function resolveListenAddr(): string {
+  const apiAddr = process.env.API_ADDR?.trim();
+  if (apiAddr) return apiAddr;
+  // cPanel / Passenger and many PaaS hosts set PORT; the proxy forwards to that port.
+  const port = process.env.PORT?.trim();
+  if (port) return `0.0.0.0:${port}`;
+  return ":8788";
+}
+
 export function loadConfig(): AppConfig {
-  const addr = process.env.API_ADDR?.trim() || ":8788";
+  const addr = resolveListenAddr();
   return {
     addr,
     databaseUrl: process.env.DATABASE_URL?.trim() || "",

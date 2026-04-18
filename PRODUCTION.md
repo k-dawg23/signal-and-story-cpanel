@@ -212,7 +212,7 @@ Upload into each **application root** in cPanel: **`package.json`**, **`package-
 3. **Setup Node.js App:** set **Application URL** (e.g. `api.signal-and-story.k-dawg.uk`), **Application startup file** **`dist/server.js`**, **environment variables** per **§6.2**.
 4. Run **Run NPM Install** / ensure dependencies, then **Restart**.
 
-**Listen address:** set **`API_ADDR`** if needed (default **`:8788`**). Some hosts inject **`PORT`**; align with your provider’s Node app docs if the process fails to bind.
+**Listen address:** default **`:8788`**. If **`API_ADDR`** is unset, the API uses **`PORT`** when the host sets it (typical for cPanel / Passenger). Otherwise set **`API_ADDR`** explicitly per your provider (e.g. **`0.0.0.0:8788`** or the port they assign).
 
 **Stripe webhook** (Dashboard): **`https://<your-api-host>/webhooks/stripe`** — mounted at the **root** of the API app (not under `/api`). **`STRIPE_WEBHOOK_SECRET`** must match this endpoint’s signing secret.
 
