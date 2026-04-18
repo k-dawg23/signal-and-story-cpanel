@@ -61,7 +61,7 @@ const featured = data.products.slice(0, 6);
       <div class="card" style="padding:14px">
         <div style="font-weight:800">Cannot reach the API</div>
         <div style="color:var(--muted);margin-top:6px;line-height:1.6">
-          The storefront could not load <code>{apiBase}/api/products</code>. Start <code>apps/api-node</code> (e.g. <code>./scripts/dev.sh</code>) and ensure <code>PUBLIC_API_BASE</code> matches the API URL (default <code>http://localhost:8788</code>).
+          The storefront could not load <code>{apiBase}/api/products</code>. Start <code>apps/api-node</code> (e.g. <code>./scripts/dev.sh</code>). In dev, production URLs in <code>.env</code> are ignored for the API unless you set <code>PUBLIC_SAS_REMOTE=1</code>.
         </div>
       </div>
     ) : (

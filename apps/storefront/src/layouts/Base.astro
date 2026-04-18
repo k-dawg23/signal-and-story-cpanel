@@ -1,12 +1,8 @@
 ---
 import "../styles/global.css";
+import { apiBase, authBase } from "../lib/api";
 
 const { title = "Signal & Story", description = "Gear for Every Universe" } = Astro.props;
-
-// Use `localhost` by default so Better Auth cookies (host-only) are sent to the API.
-// `127.0.0.1` is a different host and will not receive `localhost` cookies.
-const apiBase = import.meta.env.PUBLIC_API_BASE ?? "http://localhost:8788";
-const authBase = import.meta.env.PUBLIC_AUTH_BASE ?? "http://localhost:8787";
 const adminEmail = import.meta.env.PUBLIC_ADMIN_EMAIL ?? import.meta.env.ADMIN_EMAIL ?? "";
 const brevoEnabled = Boolean(import.meta.env.BREVO_API_KEY);
 ---

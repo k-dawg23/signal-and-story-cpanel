@@ -24,7 +24,7 @@ const { data, ok: catalogOk } = await tryGetJSON<{ products: any[] }>("/api/prod
     <div class="card" style="padding:14px">
       <div style="font-weight:800">Cannot reach the API</div>
       <div style="color:var(--muted);margin-top:6px;line-height:1.6">
-        Could not load <code>{apiBase}/api/products</code>. Start <code>apps/api-node</code> (e.g. <code>./scripts/dev.sh</code>).
+        Could not load <code>{apiBase}/api/products</code>. Start <code>apps/api-node</code> (e.g. <code>./scripts/dev.sh</code>). In dev, remote <code>PUBLIC_API_BASE</code> values are ignored unless <code>PUBLIC_SAS_REMOTE=1</code>.
       </div>
     </div>
   ) : (

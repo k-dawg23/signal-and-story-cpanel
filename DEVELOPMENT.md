@@ -43,7 +43,9 @@ Press **Ctrl+C** to stop the Node processes (Docker containers keep running unle
 
 ### Environment variables
 
-Copy `.env.example` to `.env` at the repo root and adjust:
+Copy `.env.example` to `.env` at the repo root. For `astro dev` run only inside **`apps/storefront`**, you can add **`apps/storefront/.env`** for `PUBLIC_*` (Astro reads env from that folder).
+
+**`PUBLIC_*` in dev:** Values like `PUBLIC_API_BASE=https://api.…` are **ignored** while `import.meta.env.DEV` so the storefront uses **`http://localhost:8788`** / **`http://localhost:8787`**. Set **`PUBLIC_SAS_REMOTE=1`** to use your configured production URLs from env during dev.
 
 - **Shared / URLs**: `APP_BASE_URL`, optional `APP_ORIGIN_ALLOWLIST` (comma-separated extra allowed origins, e.g. LAN or preview URLs)
 - **Database**: `DATABASE_URL` (must match Docker Postgres)
