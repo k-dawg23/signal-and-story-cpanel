@@ -122,8 +122,8 @@ Never commit secrets. In **cPanel’s environment variable fields**, enter **raw
 | **`DATABASE_URL`** | Same as auth. |
 | **`API_ADDR`** | Listen address, e.g. `:8788` or host-required value. |
 | **`AUTH_BASE_URL`** | Same value as auth’s public base (for session verification), e.g. `https://auth.signal-and-story.k-dawg.uk/api/auth`. |
-| **`APP_BASE_URL`** | Storefront URL (CORS), e.g. `https://signal-and-story.k-dawg.uk`. |
-| **`APP_ORIGIN_ALLOWLIST`** | Optional. |
+| **`APP_BASE_URL`** | Storefront origin for **CORS** (scheme + host, no path). Use the same host users open in the browser (e.g. `https://signal-and-story.k-dawg.uk`). If you serve both **apex** and **`www`**, add the other host in **`APP_ORIGIN_ALLOWLIST`**. Trailing slashes are normalized, but **`www` vs non-`www` are different origins**. |
+| **`APP_ORIGIN_ALLOWLIST`** | Optional comma-separated extra storefront origins allowed to call the API with cookies (e.g. `https://www.signal-and-story.k-dawg.uk`). |
 | **`STRIPE_SECRET_KEY`**, **`STRIPE_WEBHOOK_SECRET`**, **`STRIPE_SUCCESS_URL`**, **`STRIPE_CANCEL_URL`** | Stripe. |
 | **`ADMIN_EMAIL`** | Admin API authorization. |
 | **`BREVO_*` or `SMTP_*`** | Order emails (same semantics as auth mail; API has its own `email` code path). |
@@ -286,6 +286,8 @@ Reference: [Astro — Deploy your Astro Site to a Node server](https://docs.astr
 ---
 
 ## 12. Post-deploy verification (in this order)
+
+**Checkout shows “Failed to fetch” in the browser:** open DevTools → **Network**, click the failing **`session`** request. If it is **(blocked:cors)** or missing **`access-control-allow-origin`**, fix **`APP_BASE_URL`** / **`APP_ORIGIN_ALLOWLIST`** on the API (§6.2). If the request URL is **`http://localhost:8788`** or the wrong host, rebuild the storefront with correct **`PUBLIC_API_BASE`** (§6.3). If the URL is correct but **(failed)** or **SSL** errors, fix DNS/HTTPS on the API host.
 
 1. **TLS** on all three hosts.
 2. **`GET /healthz`** on auth and API.

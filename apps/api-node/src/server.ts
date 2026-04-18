@@ -25,14 +25,34 @@ type ProductRow = {
   image_url: string;
 };
 
+/** Browser `Origin` is always a scheme + host + port (no path). Normalize env values so trailing slashes / missing schemes don’t break CORS. */
+function normalizeOrigin(input: string): string {
+  const s = input.trim();
+  if (!s) return s;
+  try {
+    let href = s;
+    if (!/^https?:\/\//i.test(href)) {
+      href = `https://${href}`;
+    }
+    const u = new URL(href);
+    return u.origin;
+  } catch {
+    return s.replace(/\/+$/, "");
+  }
+}
+
 function defaultAllowedOrigins(): string[] {
-  let base = process.env.APP_BASE_URL?.trim() || "http://localhost:4321";
-  const out = new Set<string>([base, "http://localhost:4321", "http://127.0.0.1:4321"]);
+  const base = normalizeOrigin(process.env.APP_BASE_URL?.trim() || "http://localhost:4321");
+  const out = new Set<string>([
+    base,
+    normalizeOrigin("http://localhost:4321"),
+    normalizeOrigin("http://127.0.0.1:4321"),
+  ]);
   const raw = process.env.APP_ORIGIN_ALLOWLIST?.trim();
   if (raw) {
     for (const part of raw.split(",")) {
       const v = part.trim();
-      if (v) out.add(v);
+      if (v) out.add(normalizeOrigin(v));
     }
   }
   return [...out];
