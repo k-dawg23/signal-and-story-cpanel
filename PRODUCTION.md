@@ -290,6 +290,8 @@ Reference: [Astro — Deploy your Astro Site to a Node server](https://docs.astr
 
 **Checkout shows “Failed to fetch” in the browser:** open DevTools → **Network**, click the failing **`session`** request. If it is **(blocked:cors)** or missing **`access-control-allow-origin`**, fix **`APP_BASE_URL`** / **`APP_ORIGIN_ALLOWLIST`** on the API (§6.2). If the request URL is **`http://localhost:8788`** or the wrong host, rebuild the storefront with correct **`PUBLIC_API_BASE`** (§6.3). If the URL is correct but **(failed)** or **SSL** errors, fix DNS/HTTPS on the API host.
 
+**Two order confirmation emails for one purchase:** apply migration **`007_checkout_confirmation_email_sent.sql`** (§7), redeploy the API, and ensure only **one** Stripe webhook endpoint targets your live API. If duplicates continue, check **Brevo** for an automation or template that also sends on the same trigger.
+
 1. **TLS** on all three hosts.
 2. **`GET /healthz`** on auth and API.
 3. Storefront loads data from API.

@@ -262,19 +262,23 @@ export async function processStripeCheckoutSessionCompleted(
       await backfillOrderItemsFromStripeCheckoutSession(pool, stripe, orderDBID, cs.id).catch(() => {});
     }
 
-    // Exactly-once email per order: two webhook deliveries (different event ids, host retries, etc.)
-    // can both pass processed_webhooks; claim the send slot before calling Brevo/SMTP.
-    const claim = await pool.query(
-      `UPDATE orders SET confirmation_email_sent_at = now() WHERE id=$1 AND confirmation_email_sent_at IS NULL RETURNING id`,
-      [orderDBID]
+    // Exactly one email per Checkout Session (Stripe can hit multiple webhook URLs or deliver
+    // related events with different ids). PK on session id is the authoritative guard.
+    const gate = await pool.query(
+      `INSERT INTO checkout_confirmation_email_sent (stripe_checkout_session_id) VALUES ($1) ON CONFLICT (stripe_checkout_session_id) DO NOTHING RETURNING stripe_checkout_session_id`,
+      [cs.id]
     );
-    if (!claim.rows[0]) {
+    if (!gate.rows[0]) {
       return;
     }
     try {
       await sendOrderConfirmationEmail(pool, email, orderDBID, cs.id);
+      await pool.query(
+        `UPDATE orders SET confirmation_email_sent_at = now() WHERE id=$1 AND confirmation_email_sent_at IS NULL`,
+        [orderDBID]
+      );
     } catch (e) {
-      await pool.query(`UPDATE orders SET confirmation_email_sent_at = NULL WHERE id=$1`, [orderDBID]);
+      await pool.query(`DELETE FROM checkout_confirmation_email_sent WHERE stripe_checkout_session_id=$1`, [cs.id]);
       throw e;
     }
   } catch (e) {
