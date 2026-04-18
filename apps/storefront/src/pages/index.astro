@@ -1,9 +1,11 @@
 ---
+export const prerender = false;
+
 import Base from "../layouts/Base.astro";
 import ProductCard from "../components/ProductCard.astro";
-import { safeGetJSON } from "../lib/api";
+import { apiBase, tryGetJSON } from "../lib/api";
 
-const data = await safeGetJSON<{ products: any[] }>("/api/products", { products: [] });
+const { data, ok: catalogOk } = await tryGetJSON<{ products: any[] }>("/api/products", { products: [] });
 const featured = data.products.slice(0, 6);
 ---
 <Base title="Signal & Story — Gear for Every Universe">
@@ -55,11 +57,18 @@ const featured = data.products.slice(0, 6);
       <div class="grid cols3">
         {featured.map((p) => <ProductCard product={p} />)}
       </div>
+    ) : !catalogOk ? (
+      <div class="card" style="padding:14px">
+        <div style="font-weight:800">Cannot reach the API</div>
+        <div style="color:var(--muted);margin-top:6px;line-height:1.6">
+          The storefront could not load <code>{apiBase}/api/products</code>. Start <code>apps/api-node</code> (e.g. <code>./scripts/dev.sh</code>) and ensure <code>PUBLIC_API_BASE</code> matches the API URL (default <code>http://localhost:8788</code>).
+        </div>
+      </div>
     ) : (
       <div class="card" style="padding:14px">
-        <div style="font-weight:800">Catalog service offline</div>
+        <div style="font-weight:800">No products in the catalog</div>
         <div style="color:var(--muted);margin-top:6px;line-height:1.6">
-          Run <code>npm run dev</code> in <code>apps/api-node</code> or <code>./scripts/dev.sh</code> from the repo root to load products.
+          Seed sample products: <code>SAS_SEED_PRODUCTS=1 ./scripts/db-reset-and-seed.sh</code>, or add products in Admin.
         </div>
       </div>
     )}

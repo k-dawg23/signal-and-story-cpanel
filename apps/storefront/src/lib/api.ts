@@ -15,3 +15,12 @@ export async function safeGetJSON<T>(path: string, fallback: T): Promise<T> {
   }
 }
 
+/** Like `safeGetJSON`, but callers can tell **connection/API errors** from an empty successful response. */
+export async function tryGetJSON<T>(path: string, fallback: T): Promise<{ data: T; ok: boolean }> {
+  try {
+    return { data: await getJSON<T>(path), ok: true };
+  } catch {
+    return { data: fallback, ok: false };
+  }
+}
+
